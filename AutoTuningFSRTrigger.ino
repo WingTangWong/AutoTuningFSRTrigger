@@ -1,20 +1,35 @@
 /*
 
-  FSR Self Calibrating Trigger
+  Auto Tuning FSR Trigger
+  Author: Wing Tang Wong
+  GitHub: https://github.com/WingTangWong/AutoTuning-FSR-Trigger
+ 
+  Wrote the code testing on an Arduino Mega/Uno set, but the intended destination is to 
+  run it from an ATTINY85. 
   
-  Designed for Arduino, but ideally will be run on an attiny85.
-  
-  Inputs:
-    ADC
-    
-  Output:
-    Digital IO High/Low
+  Inputs: ADC
+  Output: Digital IO High/Low
   
 */
 
+1905: #ifndef __AVR_ATmega2560__
+
+/*
+  Okay, let's set this up so that depending on which board you have the Arduino IDE setup to, we'll have different pins setup.
+*/
+
+
+#if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega 
+  int analogIN   = A3; // Pin for the ADC input
+  int digitalOUT = 13; // Pin for the digital signal out
+#endif
+
+
+
+
+
+
 // IO pins
-int analogIN   = A3; // Pin for the ADC input
-int digitalOUT = 13; // Pin for the digital signal out
 long noiseLEVEL = 15;
 long threshold = 25;
 // timeouts/etc.
