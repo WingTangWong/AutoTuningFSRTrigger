@@ -47,6 +47,13 @@ Credits/References/Shout Outs
 * Thanks to Rich for the awesome mod to the Marlin firmware to support the auto-probing.
 * https://github.com/RichCattell/Marlin
 
+Getting Arduino To Work with ATTINY chips
+=========================================
+
+I got Arduino 1.5.x working with the following resource:
+
+https://code.google.com/p/arduino-tiny/
+
 
 Notes/Addendum
 ==============
