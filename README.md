@@ -39,6 +39,15 @@ Configurable Variables In Code
 * NOISE - variations of ADC reading to ignore and consider close enough to the average value to be considered "settled".
 * THRESHOLD - an increase of this much above ambient will represent a "hit" or "contact" and will trigger a HIGH on the digital output, subject to the TIMEOUT value/behaviour listed above.
 
+Credits/References/Shout Outs
+=============================
+
+* Thanks to the DeltaBot Google Group for introducing me to FSR(s)!
+* https://groups.google.com/forum/#!forum/deltabot
+* Thanks to Rich for the awesome mod to the Marlin firmware to support the auto-probing.
+* https://github.com/RichCattell/Marlin
+
+
 Notes/Addendum
 ==============
 
