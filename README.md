@@ -43,9 +43,9 @@ Credits/References/Shout Outs
 =============================
 
 * Thanks to the DeltaBot Google Group for introducing me to FSR(s)!
-* https://groups.google.com/forum/#!forum/deltabot
+ * https://groups.google.com/forum/#!forum/deltabot
 * Thanks to Rich for the awesome mod to the Marlin firmware to support the auto-probing.
-* https://github.com/RichCattell/Marlin
+ * https://github.com/RichCattell/Marlin
 
 Getting Arduino To Work with ATTINY chips
 =========================================
@@ -59,3 +59,8 @@ Notes/Addendum
 ==============
 
 This is a work in progress.
+
+* Changing the behaviour so that instead of constantly auto-settling, the settling can happen for 2 use cases:
+
+ * At startup, the system will auto-settle and use this value until power cycle or...
+ * When triggered with a button/signal.
