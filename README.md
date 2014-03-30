@@ -55,12 +55,21 @@ I got Arduino 1.5.x working with the following resource:
 https://code.google.com/p/arduino-tiny/
 
 
-Notes/Addendum
+Planned Features
+================
+* External switch to adjust behaviour/toggle
+* Support for external LED or other indicator of internal acitivity
+
+CHANGELOG
 ==============
 
-This is a work in progress.
+** March 29th, 2014 **
+* Reworked code to cleanup setup and main loop.
+* Added configuration for single-shot sensor calibration vs continous sensor calibration
+* Added definitions to support multiple FSR sensor inputs
+* Added option to flip signal behaviour between LOW->HIGH  and HIGH->LOW
+* Took out serial debug lines
 
-* Changing the behaviour so that instead of constantly auto-settling, the settling can happen for 2 use cases:
+** Initial Version **
 
- * At startup, the system will auto-settle and use this value until power cycle or...
- * When triggered with a button/signal.
+Initial code commit. Continous sensor recalibration.
