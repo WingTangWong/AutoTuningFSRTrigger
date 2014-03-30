@@ -62,6 +62,8 @@ Planned Features
 * Independent reading and levelling for 3 FSR sensors
 * Independent status LED(s) for each sensor
 
+Got a feature you are interested in me incorporating? Please file an issue. Thanks!
+
 CHANGELOG
 ==============
 
