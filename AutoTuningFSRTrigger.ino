@@ -12,108 +12,172 @@
 
 */
 
+void setup()
+{
+  configurePins();
+  performSettle();
+};
 
-/*
-  Okay, let's set this up so that depending on which board you have the Arduino IDE setup to, we'll have different pins setup.
-*/
-
-// Default pin values we will use
-int analogIN   = A3; // Pin for the ADC input
-int digitalOUT = 0; // Pin for the digital signal out  Use '13' if you are using UNO or MEGA boards to make use of the LED.
+void loop()
+{
+  processInput();
+  processSettle();
+};
 
 
+// The board that you are using...
+//  BOARD == 0 "Arduino Uno"
+//  BOARD == 1 "Arduino Mega"
+//  BOARD == 2 "ATMEGA328P"
+//  BOARD == 3 "ATTINY85"
+int BOARD = 0;
 
-// IO pins
+// By default, the output pin is set to LOW. On trigger, set to HIGH.
+// If you want this to be reversed, set this to false.
+bool outputSignalHIGH = true;
+
+// Continous or one-shot calibration?
+bool oneShotSettle = true;
+// If oneShotSettle is false, then settleTIMEOUT determines how long between each auto-settle session
+long settleTIMEOUT = 250;
+long sinceLastSettle=millis();
+
+// How many sensors are you going to hookup?
+// If you are hooking up three sensors to one input pin, then enter 1 here. Otherwise, 
+// enter the number that are getting hooked up.
+int sensorsToUse = 3;
+
+
+// Timeout for various events
+long TIMEOUT = 1500;
+
+
+// How much of a wiggle room for sensor readings
 long noiseLEVEL = 15;
+// How much the pressure needs to increase to trigger an output signal change
 long threshold = 25;
-long TIMEOUT = 500; // In milliseconds. 2000 = 2 seconds.
+
+// Initialize starting values as globals
 long ambient=0;
 long reading=0;
 long newambient=0;
 long delta=0;
 long range=0;
 long sensorValue=0;
-long sinceLastSettle=millis();
-long settleTIMEOUT = 250; // Only force resettle every 250 ms
-
-// Debugging info
-bool debug = false;
+int signalON=HIGH;
+int signalOFF=LOW;
 
 
 
+// =======================================
+// Arduino UNO board
+// =======================================
 
-/*
+#if BOARD == 0
+  #define boardNAME "Arduino Uno"
+  #define digitalOUT 13
+  #define analogIN1 A3
+  #define analogIN2 A4
+  #define analogIN3 A5
+#endif
 
-  settle()
+#if BOARD == 1
+  #define boardNAME "Arduino Mega"
+  #define digitalOUT 13
+  #define analogIN1 A3
+  #define analogIN2 A4
+  #define analogIN3 A5
+#endif
 
-  Basically, update ambient value until it is settled to some value where the variation of the value does not
-  exceed a range of jitter
+#if BOARD == 2
+  #define boardNAME "ATMEGA328P"
+  #define digitalOUT 13
+  #define analogIN1 A3
+  #define analogIN2 A4
+  #define analogIN3 A5
+#endif
 
-*/
+#if BOARD == 3
+  #define boardNAME "ATTINY85"
+  #define digitalOUT 6
+  #define analogIN1 A1
+  #define analogIN2 A2
+  #define analogIN3 A3
+#endif
 
+// placeholder for single sensor testing.
+long analogIN = analogIN1;
 
-void settle() {
+// performSettle()
+//
+// Basically, this settles the sensor readings so that they are all good.
+// 
 
+void performSettle() {
   while ( true ) {
-
     reading = analogRead(analogIN) + analogRead(analogIN) + analogRead(analogIN);
-    reading = int(reading / 3.000); // Make sure we're dealing with whole numbers.
-
-    newambient = int( (ambient + reading) / 2.00 ); // Let's average that into the ambient value.
-
+    reading = int(reading / 3.000);
+    newambient = int( (ambient + reading) / 2.00 );
     delta = newambient - ambient;
     ambient = newambient;
-
     if ( delta < 0 ) {
       delta = delta * -1;
     };
 
-  if ( debug ) {
-    Serial.print("sensor = " );                       
-    Serial.print(reading);
-    Serial.print("\t ambient = ");
-    Serial.print(ambient);
-    Serial.print("\t range = ");
-    Serial.print(range);
-    Serial.print("\t delta = ");
-    Serial.println(delta);
-  };
-  
     if ( delta <= noiseLEVEL ) {
-       if ( debug ) { Serial.println("Settled!"); };
-        break;
+      break;
     };
   };
   sinceLastSettle=millis();
 };
 
 
-/*
-  
-  latchup()
+// processSettle()
+// 
+// When this is called, we determine if we need to perform a settle.
+//
+void processSettle() {
+    reading = analogRead(analogIN) + analogRead(analogIN) + analogRead(analogIN);
+    reading = int(reading / 3.000);
 
-  When a triggering event occurs, let's hold the signal high until either the pressure
-  drops off or a timeout occurs.
+    if ( oneShotSettle == false ) {
+        if ( ( reading + noiseLEVEL ) < ambient ) {
+          performSettle();
+        };
+        if ( ( millis() - sinceLastSettle ) > settleTIMEOUT ) {
+          performSettle();
+        };
+    };
+};
 
-  The timeout clause is for cases where someone has put something on the plate, changing
-  the ambient pressure value to a higher one. 
 
-*/
 
-void latchup() {
+// Send an output signal from a triggering event
+void performSignal() {
+
   int newReading=0;
   long startTime = millis();
+  long SIGNAL = LOW; 
+
+  // How are we going to signal the outside world?
+  if ( outputSignalHIGH ) {
+    signalON = HIGH;
+    signalOFF = LOW;
+  } else {
+    signalON = LOW;
+    signalOFF = HIGH;
+  };
 
   // Going to set this high until system re-settles.
-  digitalWrite( digitalOUT, HIGH );
+  digitalWrite( digitalOUT, signalON );
 
   while( true ) {
-
     // Take a sample reading
-    newReading = analogRead( analogIN );
+    reading = analogRead(analogIN) + analogRead(analogIN) + analogRead(analogIN);
+    reading = int(reading / 3.000);
 
     // Has the pressure returned to normal?
-    if ( newReading <= ( ambient + noiseLEVEL ) ) {
+    if ( reading <= ( ambient + noiseLEVEL ) ) {
       // Okay, we've returned to normal!
       break;
     };
@@ -126,60 +190,32 @@ void latchup() {
   };
 
   // Drop the signal before we leave
-  digitalWrite( digitalOUT, LOW);    
+  digitalWrite( digitalOUT, signalOFF);    
 };
 
 
-
-
-
-/*
-
-  Setup function. Just setup the pin input/output values and perform initial settle operation.
-
-*/
-
-void setup() {
-
-    // If we are doing debug, let's setup the serial line
-    if ( debug ) {
-      Serial.begin(115200); 
-    };
-    
+// Setup pins
+void configurePins() {
     pinMode( digitalOUT, OUTPUT);
-    digitalWrite( digitalOUT, LOW);
     pinMode( analogIN, INPUT);
+    digitalWrite( analogIN, LOW);
 
-    // Force the input values to settle.
-    settle();
+  // Set the default state of the output pins
+  if ( outputSignalHIGH ) {
+    digitalWrite( digitalOUT, LOW);
+  } else {
+    digitalWrite( digitalOUT, HIGH);
+  };
 }
 
 
-
-
-/*
-
-  Main program loop.
-
-*/
-
-void loop() {
-
-  // Take a reading.
-  sensorValue = analogRead(analogIN);
+void processInput() {
+  // Take an averaged reading.
+  reading = analogRead(analogIN) + analogRead(analogIN) + analogRead(analogIN);
+  reading = int(reading / 3.000);
 
   // Determine if the reading counts as a hit.
-  if ( sensorValue > ( ambient + threshold ) ) {
-    if ( debug ) {
-        Serial.print("HIT!!!: ");
-        Serial.println(sensorValue);
-    };
-    latchup();
-  };
- 
-  
-  // Determine if we should re-settle the pressure value.
-  if ( ( millis() - sinceLastSettle ) > settleTIMEOUT ) {
-      settle();
+  if ( reading > ( ambient + threshold ) ) {
+    performSignal();
   };
 }
