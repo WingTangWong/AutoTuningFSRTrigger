@@ -59,6 +59,8 @@ Planned Features
 ================
 * External switch to adjust behaviour/toggle
 * Support for external LED or other indicator of internal acitivity
+* Independent reading and levelling for 3 FSR sensors
+* Independent status LED(s) for each sensor
 
 CHANGELOG
 ==============
