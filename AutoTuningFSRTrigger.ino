@@ -12,17 +12,7 @@
 
 */
 
-void setup()
-{
-  configurePins();
-  performSettle();
-};
 
-void loop()
-{
-  processInput();
-  processSettle();
-};
 
 
 // The board that you are using...
@@ -30,7 +20,7 @@ void loop()
 //  BOARD == 1 "Arduino Mega"
 //  BOARD == 2 "ATMEGA328P"
 //  BOARD == 3 "ATTINY85"
-int BOARD = 0;
+int BOARD = 3;
 
 // By default, the output pin is set to LOW. On trigger, set to HIGH.
 // If you want this to be reversed, set this to false.
@@ -49,7 +39,7 @@ int sensorsToUse = 3;
 
 
 // Timeout for various events
-long TIMEOUT = 1500;
+long TIMEOUT = 100;
 
 
 // How much of a wiggle room for sensor readings
@@ -67,43 +57,15 @@ long sensorValue=0;
 int signalON=HIGH;
 int signalOFF=LOW;
 
+bool STATE = false;
+long lastToggle = 0;
+long BLINKTIMEOUT = 100;
 
+long digitalOUT = 13;
+long analogIN1 = A1;
+long analogIN2 = A2;
+long analogIN3 = A3;
 
-// =======================================
-// Arduino UNO board
-// =======================================
-
-#if BOARD == 0
-  #define boardNAME "Arduino Uno"
-  #define digitalOUT 13
-  #define analogIN1 A3
-  #define analogIN2 A4
-  #define analogIN3 A5
-#endif
-
-#if BOARD == 1
-  #define boardNAME "Arduino Mega"
-  #define digitalOUT 13
-  #define analogIN1 A3
-  #define analogIN2 A4
-  #define analogIN3 A5
-#endif
-
-#if BOARD == 2
-  #define boardNAME "ATMEGA328P"
-  #define digitalOUT 13
-  #define analogIN1 A3
-  #define analogIN2 A4
-  #define analogIN3 A5
-#endif
-
-#if BOARD == 3
-  #define boardNAME "ATTINY85"
-  #define digitalOUT 6
-  #define analogIN1 A1
-  #define analogIN2 A2
-  #define analogIN3 A3
-#endif
 
 // placeholder for single sensor testing.
 long analogIN = analogIN1;
@@ -219,3 +181,93 @@ void processInput() {
     performSignal();
   };
 }
+
+
+// This was just for debugging!
+void blink() {
+    digitalWrite(digitalOUT, HIGH);
+    delay(50);
+    digitalWrite(digitalOUT, LOW);
+    delay(50);
+};
+
+// Debug
+void LIGHTON() {
+      digitalWrite(digitalOUT, HIGH);
+};
+
+// Debug
+void LIGHTOFF() {
+      digitalWrite(digitalOUT, LOW);
+};
+  
+
+void boards() {
+  switch(BOARD) {
+    case 0:
+      // Arduino UNO
+      digitalOUT = 13;
+      analogIN1 = A0;
+      analogIN1 = A1;
+      analogIN1 = A2;
+      break;
+    case 1:
+       // Arduino MEGA
+      digitalOUT = 13;
+      analogIN1 = A0;
+      analogIN1 = A1;
+      analogIN1 = A2;
+      break;
+    case 2:
+      // atmega328p 
+      digitalOUT = 13;
+      analogIN1 = A0;
+      analogIN1 = A1;
+      analogIN1 = A2;
+      break;
+    case 3:
+      // ATTINY85
+      // Note, timings based on the ATtiny85 , 1Mhz internal OSC. Setting fuses at different speeds will impact the timings.
+      digitalOUT = 0;
+      analogIN1 = A0;
+      analogIN1 = A1;
+      analogIN1 = A2;
+      break;
+    default:
+      // default 
+      digitalOUT = 13;
+      analogIN1 = A0;
+      analogIN1 = A1;
+      analogIN1 = A2;
+  };  
+};
+
+void setup()
+{
+    // Load the board configurations
+    boards();
+    
+    // Let's setup the output pin
+    pinMode( digitalOUT, OUTPUT);
+    digitalWrite( digitalOUT, signalOFF );
+
+    // Let's setup the pin modes and default states    
+    pinMode( analogIN, INPUT);
+    pinMode( analogIN1, INPUT);
+    pinMode( analogIN2, INPUT);
+    pinMode( analogIN3, INPUT);
+    
+    digitalWrite( analogIN, LOW);
+    digitalWrite( analogIN1, LOW);
+    digitalWrite( analogIN2, LOW);
+    digitalWrite( analogIN3, LOW);
+   
+};
+
+void loop()
+{
+  processInput();
+  processSettle();
+  //blink(); // Using this to test whether the code was running...
+};
+
