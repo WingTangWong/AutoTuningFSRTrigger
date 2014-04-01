@@ -4,6 +4,11 @@ AutoTuning FSR Trigger
 Arduino code to facilitate auto-tuning of a force sensing resistor for triggering end stops and auto probes for 3d printer auto-levelling.
 
 
+FSR Module In Action
+====================
+* http://youtu.be/ziHav-B4uYc
+
+
 What Are FSR(Force Sensing Resistors)?
 ======================================
 
@@ -61,11 +66,17 @@ Planned Features
 * Support for external LED or other indicator of internal acitivity
 * Independent reading and levelling for 3 FSR sensors
 * Independent status LED(s) for each sensor
+* LED status indicator support
+* Detect when FSR settles on a level that is too close to the ADC limit and alert
 
 Got a feature you are interested in me incorporating? Please file an issue. Thanks!
 
 CHANGELOG
 ==============
+
+** March 30th, 2014 **
+* Fixed board defines
+* Verified working on ATtiny85 (single FSR)
 
 ** March 29th, 2014 **
 * Reworked code to cleanup setup and main loop.
