@@ -12,9 +12,6 @@
 
 */
 
-
-
-
 // The board that you are using...
 //  BOARD == 0 "Arduino Uno"
 //  BOARD == 1 "Arduino Mega"
@@ -27,9 +24,11 @@ int BOARD = 3;
 bool outputSignalHIGH = true;
 
 // Continous or one-shot calibration?
+// If this is set to true, then the code will ONLY calibrate the FSR once, at the time of startup.
 bool oneShotSettle = true;
+
 // If oneShotSettle is false, then settleTIMEOUT determines how long between each auto-settle session
-long settleTIMEOUT = 250;
+long settleTIMEOUT = 500;
 long sinceLastSettle=millis();
 
 // How many sensors are you going to hookup?
@@ -39,13 +38,14 @@ int sensorsToUse = 3;
 
 
 // Timeout for various events
-long TIMEOUT = 100;
+long TIMEOUT = 10000;
 
 
+// Note, the level and threshold values are based on the ADC's 0-1024 values as understood from the FSR readings.
 // How much of a wiggle room for sensor readings
-long noiseLEVEL = 15;
+long noiseLEVEL = 40;
 // How much the pressure needs to increase to trigger an output signal change
-long threshold = 25;
+long threshold = 40;
 
 // Initialize starting values as globals
 long ambient=0;
@@ -65,7 +65,11 @@ long digitalOUT = 13;
 long analogIN1 = A1;
 long analogIN2 = A2;
 long analogIN3 = A3;
-
+long statusLED1  = 12;
+long statusLED2  = 11;
+long statusLED3  = 10;
+long calibrateIN = 9;
+long signalHigh  = 8;
 
 // placeholder for single sensor testing.
 long analogIN = analogIN1;
@@ -139,7 +143,7 @@ void performSignal() {
     reading = int(reading / 3.000);
 
     // Has the pressure returned to normal?
-    if ( reading <= ( ambient + noiseLEVEL ) ) {
+    if ( reading <= ( ambient + threshold ) ) {
       // Okay, we've returned to normal!
       break;
     };
@@ -206,39 +210,93 @@ void boards() {
   switch(BOARD) {
     case 0:
       // Arduino UNO
-      digitalOUT = 13;
-      analogIN1 = A0;
-      analogIN1 = A1;
-      analogIN1 = A2;
+      digitalOUT  = 13; 
+      analogIN1   = A0; 
+      analogIN2   = A1;
+      analogIN3   = A2;
+      statusLED1  = 12;
+      statusLED2  = 11;
+      statusLED3  = 10;
+      calibrateIN = 9;
+      signalHigh  = 8;
       break;
     case 1:
        // Arduino MEGA
-      digitalOUT = 13;
-      analogIN1 = A0;
-      analogIN1 = A1;
-      analogIN1 = A2;
+      digitalOUT  = 13; 
+      analogIN1   = A0; 
+      analogIN2   = A1;
+      analogIN3   = A2;
+      statusLED1  = 12;
+      statusLED2  = 11;
+      statusLED3  = 10;
+      calibrateIN = 9;
+      signalHigh  = 8;
       break;
     case 2:
       // atmega328p 
-      digitalOUT = 13;
-      analogIN1 = A0;
-      analogIN1 = A1;
-      analogIN1 = A2;
+      digitalOUT  = 13; 
+      analogIN1   = A0; 
+      analogIN2   = A1;
+      analogIN3   = A2;
+      statusLED1  = 12;
+      statusLED2  = 11;
+      statusLED3  = 10;
+      calibrateIN = 9;
+      signalHigh  = 8;
       break;
     case 3:
-      // ATTINY85
+      // ATTINY85 - 8 pins!
       // Note, timings based on the ATtiny85 , 1Mhz internal OSC. Setting fuses at different speeds will impact the timings.
-      digitalOUT = 0;
-      analogIN1 = A0;
-      analogIN1 = A1;
-      analogIN1 = A2;
+      digitalOUT  = 0; 
+      analogIN1   = A3; 
+      analogIN2   = A3;
+      analogIN3   = A3;
+      statusLED1  = 4;
+      statusLED2  = 4;
+      statusLED3  = 4;
+      calibrateIN = 1;
+      signalHigh  = 2;
       break;
+    case 4:
+      // ATTINY88 via Adafruit Tinker board - 8 pins with USB header
+      // Note, timings based on the ATtiny85 , 1Mhz internal OSC. Setting fuses at different speeds will impact the timings.
+      // Need to confirm these pinouts
+      digitalOUT  = 0; 
+      analogIN1   = A3; 
+      analogIN2   = A3;
+      analogIN3   = A3;
+      statusLED1  = 4;
+      statusLED2  = 4;
+      statusLED3  = 4;
+      calibrateIN = 1;
+      signalHigh  = 2;
+      break;
+    case 5:
+      // ATTINY84 - 14 pins!
+      // Note, timings based on the ATtiny85 , 1Mhz internal OSC. Setting fuses at different speeds will impact the timings.
+      // Need to confirm these pinouts
+      digitalOUT  = 0; 
+      analogIN1   = A1; 
+      analogIN2   = A2;
+      analogIN3   = A3;
+      statusLED1  = 1;
+      statusLED2  = 2;
+      statusLED3  = 3;
+      calibrateIN = 4;
+      signalHigh  = 5;
+      break;
+
     default:
       // default 
-      digitalOUT = 13;
-      analogIN1 = A0;
-      analogIN1 = A1;
-      analogIN1 = A2;
+      digitalOUT  = 13; 
+      analogIN1   = A0; 
+      analogIN2   = A1;
+      analogIN3   = A2;
+      statusLED1  = 12;
+      statusLED2  = 11;
+      statusLED3  = 10;
+      calibrateIN = 9;
+      signalHigh  = 8;
   };  
 };
 
@@ -261,7 +319,11 @@ void setup()
     digitalWrite( analogIN1, LOW);
     digitalWrite( analogIN2, LOW);
     digitalWrite( analogIN3, LOW);
+    
+    // We will settle the input once, at startup.
+    performSettle();
    
+  
 };
 
 void loop()
