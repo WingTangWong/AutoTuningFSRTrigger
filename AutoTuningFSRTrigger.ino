@@ -17,6 +17,7 @@
 //  BOARD == 1 "Arduino Mega"
 //  BOARD == 2 "ATMEGA328P"
 //  BOARD == 3 "ATTINY85"
+//  BOARD == 4 "Ada Trinket"
 int BOARD = 3;
 
 // By default, the output pin is set to LOW. On trigger, set to HIGH.
@@ -61,6 +62,7 @@ bool STATE = false;
 long lastToggle = 0;
 long BLINKTIMEOUT = 100;
 
+// Various defaults... 
 long digitalOUT = 13;
 long analogIN1 = A1;
 long analogIN2 = A2;
@@ -261,15 +263,15 @@ void boards() {
       // ATTINY88 via Adafruit Tinker board - 8 pins with USB header
       // Note, timings based on the ATtiny85 , 1Mhz internal OSC. Setting fuses at different speeds will impact the timings.
       // Need to confirm these pinouts
-      digitalOUT  = 0; 
-      analogIN1   = A3; 
-      analogIN2   = A3;
-      analogIN3   = A3;
-      statusLED1  = 4;
-      statusLED2  = 4;
-      statusLED3  = 4;
-      calibrateIN = 1;
-      signalHigh  = 2;
+      digitalOUT  = 0;  // PB0 / DIO 0
+      analogIN1   = A1; // PB2 / DIO 2 / A1
+      analogIN2   = A1; 
+      analogIN3   = A1;
+      statusLED1  = 1;  // PB1 / DIO 1
+      statusLED2  = 1;
+      statusLED3  = 1;
+      calibrateIN = 3; // PB3 / DIO 3 / A3
+      signalHigh  = 4; // PB4 / DIO 4 / A2
       break;
     case 5:
       // ATTINY84 - 14 pins!
