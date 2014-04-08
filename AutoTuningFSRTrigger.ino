@@ -141,7 +141,8 @@ void do_board_setup() {
     fsrNLmax[idx]=0;
     fsrSTATE[idx]=false;
   };
-  
+ 
+  // http://learn.adafruit.com/downloads/pdf/introducing-trinket.pdf 
   if ( ( BOARD == ATTINY85 ) || ( BOARD == ADAFRUIT_TRINKET ) )
   {
     outputPIN    = 0;
