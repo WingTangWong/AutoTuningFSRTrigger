@@ -27,32 +27,41 @@
 
 */
 
+// Attempt fix for a compile bug for when I have multiple calls to functions
+
+
+
 // 
 // Function definitions
 // 
 void do_sensor();
 void do_pin_setup();
 void do_calibration();
-void do_show_state();
+// void do_show_state();
 void do_board_setup();
 void do_trigger();
 void do_led();
 //
 // Global Variables 
 //
+
 int ATMEGA328P = 0;
 int ARDUINO_UNO = 0;
 int ARDUINO_MEGA = 1;
 int ATTINY85 = 2;
 int ADAFRUIT_TRINKET = 2;
 int ATTINY84 = 3;
-
-
+int ADAFRUIT_TRINKETX3 = 4;
+int ATTINY85X3 = 5;
+bool X3 = false;
 const int MAX_SENSORS = 3;
 int seed = 5;
 int ledPINS[MAX_SENSORS];
 int fsrPINS[MAX_SENSORS];
 bool fsrSTATE[MAX_SENSORS];
+
+
+
 
 // The FSR read values, running average, Noise Level, and Trigger Levels
 unsigned long fsrVAL[MAX_SENSORS];
@@ -76,17 +85,18 @@ bool triggerSTATE = false;
 
 int idx;
 
+// Uncomment the following if you are using the Trinket Board!
+#define TRINKET 1
+
 
 // 
 // Main Setup 
 //
-void setup() {
+void setup() {  
+  // Select your board type!
+  BOARD = ADAFRUIT_TRINKET;     // Choose your board! If you chose a TRINKET type board, make sure TRINKET is defined.
+  DEBUG = false;                 // Are we doing debug?
   
-  // Setup Board and debug here!!
-
-  BOARD = ADAFRUIT_TRINKET;     // Choose your board!
-  DEBUG = true;                 // Are we doing debug?
-
   do_board_setup();
   do_pin_setup();            // Let's setup the pins. Using function, want to keep this file clean.
   do_calibration();         // Let's do the initial calibration
@@ -129,6 +139,14 @@ void loop() {
 
 void do_board_setup() {
   int idx;
+// Trinket's IDE handling code. Since they do not define A1, A2, A3....
+#ifdef  TRINKET 
+  #define A0  0
+  #define A1  2
+  #define A2  4
+  #define A3  3
+#endif
+
 
   // Initialize the various fsr values
   for( idx=0; idx< MAX_SENSORS; idx++) {
@@ -158,7 +176,24 @@ void do_board_setup() {
     fsrPINS[1]           = A1;
     fsrPINS[2]           = A1;
   };
- 
+  
+   if ( ( BOARD == ATTINY85X3 ) || ( BOARD == ADAFRUIT_TRINKETX3 ) )
+  {
+    outputPIN    = 0;
+    triggerPIN   =  4;
+    calibratePIN =  2;
+    sensors      =  1;
+
+    ledPINS[0]           = 2;
+    ledPINS[1]           = 4;
+    ledPINS[2]           = 3;
+    
+    fsrPINS[0]           = A1;
+    fsrPINS[1]           = A2;
+    fsrPINS[2]           = A3;
+    
+    X3 = true;
+  };
 
 
   if ( BOARD == ATTINY84)  {
@@ -271,15 +306,43 @@ void do_calibration() {
 void do_sensor() { 
   int idx;
   int pin;
+
   
   for( idx=0; idx<sensors ; idx++ ) {
+
+    if ( fsrPINS[idx] == ledPINS[idx] ) {
+      // We are using the same pins for input as we are
+      // for output.
+      // Prep the pins for input again
+      pinMode(fsrPINS[idx], INPUT );
+      digitalWrite( fsrPINS[idx], LOW );
+      delay(5); // Let's wait 5ms to give time for the pull down resistor to bring
+                // the value down.
+    };
+
+    // Let's take a reading. (we'll take two)
     fsrVAL[idx] = analogRead( fsrPINS[idx] );
+    fsrVAL[idx] = analogRead( fsrPINS[idx] );
+
     if ( fsrVAL[idx] > ( fsrAVG[idx] + fsrTL[idx]  )  ) {
       fsrSTATE[idx]=true;
     };
+
     if ( fsrVAL[idx] < ( fsrAVG[idx] + fsrNLmax[idx] )  ) {
       fsrSTATE[idx]=false;
     };
+
+    // If we are using the FSR pins for both LED and FSR input, let's
+    // flip them back to output mode and set their light correctly.
+    if (X3 == true ) {
+      pinMode( ledPINS[idx] , OUTPUT );
+      if ( fsrSTATE[idx] == true ) {
+        digitalWrite( ledPINS[idx], HIGH );
+      } else {
+        digitalWrite( ledPINS[idx], LOW );
+      };
+    };
+    
   }; 
 };
 
@@ -289,10 +352,12 @@ void do_trigger() {
   for( idx=0 ; idx < sensors ; idx++ )
   {
       if ( fsrSTATE[idx] == true ) {
+        pinMode( ledPINS[idx] , OUTPUT );
         digitalWrite( ledPINS[idx], HIGH);
         digitalWrite( outputPIN, LOW );
         finalSTATE++;
       } else {
+        pinMode( ledPINS[idx] , OUTPUT );
         digitalWrite( ledPINS[idx], LOW);
         finalSTATE--;
       };
@@ -311,22 +376,26 @@ void do_pin_setup() {
   digitalWrite( outputPIN, HIGH );
 
   // The trigger pin. Pull up. To trigger, pull down to ground.
-  pinMode( triggerPIN , INPUT_PULLUP ); 
+  pinMode( triggerPIN , INPUT ); 
   digitalWrite( triggerPIN, HIGH );
 
   // Calibration pin. Pull up. Pull down to ground to trigger calibration.
   // If left shorted to ground, will re-calibrate when calibration timeout occurs.
-  pinMode( calibratePIN, INPUT_PULLUP );
+  pinMode( calibratePIN, INPUT );
   digitalWrite( calibratePIN, HIGH );
 
   for(idx=0; idx < sensors; idx++) {
     // Make sure the LED pins are set to output and are low.
     pinMode( ledPINS[idx] , OUTPUT );
     digitalWrite( ledPINS[idx], LOW );
- 
-    // Make sure the FSR pins are set to input and are pulled low.
-    pinMode( fsrPINS[idx], INPUT );
-    digitalWrite( fsrPINS[idx], LOW );
+
+    // If the LED and FSR pins differ, then change them to pinput.
+    // Otherwise, leave them as output. This supports FSR/LED on the same pins. 
+    if ( X3 != true ) {
+      // Make sure the FSR pins are set to input and are pulled low.
+      pinMode( fsrPINS[idx], INPUT );
+      digitalWrite( fsrPINS[idx], LOW );
+    }
   };
 
 };
@@ -334,7 +403,7 @@ void do_pin_setup() {
 //
 // This will display an internal status update to the serial output.
 // 
-void do_show_state() { 
+/*void do_show_state() { 
   int pinIDX;
   // First, let's print the FSR status(s)
   for( pinIDX=0 ; pinIDX < sensors ; pinIDX++ ) {  
@@ -364,5 +433,5 @@ void do_show_state() {
   };
   Serial.println(" ");
 };
-
+*/
 
