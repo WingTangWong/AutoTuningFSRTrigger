@@ -18,7 +18,7 @@
   - daisy chaining modules with cascading input
   - one-shot, push-button, or continous re-calibration modes
   - triple FSR input on ATTINY85/TRINKET (no LED status)
-
+  - Create straightforward branch for ATTiny85/Trinket
 
   Disclaimer: As the author of this code, I make no guarantees of suitability of the code I'm publishing and take no responsibility for any
               damage that may result from the use of this code. For example, but not limited to,  if your expensive 3d printer implodes on 
