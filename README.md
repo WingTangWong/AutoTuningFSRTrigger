@@ -4,6 +4,14 @@ AutoTuning FSR Trigger
 Arduino code to facilitate auto-tuning of a force sensing resistor for triggering end stops and auto probes for 3d printer auto-levelling.
 
 
+ATTINY85_TRINKET_AUTOFSR 
+------------------------
+* ATTINY85 and AdaFruit Trinket version of the code.
+* Supports standalone 1Mhz internal OSC ATTINY85
+* Supports the AdaFruit Trinket board in 8Mhz or 16Mhz mode(really doesn't matter)
+* Takes reading from 3 FSR sensors
+
+
 FSR Module In Action
 ====================
 * http://youtu.be/ziHav-B4uYc
