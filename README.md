@@ -5,16 +5,34 @@ Arduino code to facilitate auto-tuning of a force sensing resistor for triggerin
 
 
 ATTINY85_TRINKET_AUTOFSR 
-------------------------
+========================
 * ATTINY85 and AdaFruit Trinket version of the code.
 * Supports standalone 1Mhz internal OSC ATTINY85
 * Supports the AdaFruit Trinket board in 8Mhz or 16Mhz mode(really doesn't matter)
 * Takes reading from 3 FSR sensors
+* Auto calibrates against pressure already on FSR at boot. Hit reset to force a recalibration.
 
 
 FSR Module In Action
 ====================
+* http://youtu.be/XGlE2bxdP1I
 * http://youtu.be/ziHav-B4uYc
+
+
+Description & Background
+========================
+
+I wrote this code to solve a specific problem: not wanting to turn dials on a potentiometer to adjust for different weights and pressures
+on the FRS sensor when placed under a print plate. My goal was to have a nearly drop in solution for a Z-axis Min End stop.
+
+After some discussion on the DeltaBot Google Group, I decided to write some code and test my idea out on an Arduino Uno board.
+
+However, that seemed like overkill, so I retooled the code to work on an ATtiny85 MCU. Apparently, there are several boards out there 
+that uses that MCU as the processor on their tiny boards. Ie, the AdaFruit Trinket. Too cool.
+
+While writing the code and testing, someone asked me whether I could have independent inputs for each of the three FSR. I started tinkering
+with the code and the result is this code.
+
 
 
 What Are FSR(Force Sensing Resistors)?
@@ -22,35 +40,15 @@ What Are FSR(Force Sensing Resistors)?
 
 FSR(s) are resistors that have conductive material sandwiched between two layers. When pressure is applied, the conductive bits come into contact in degrees relative to the amount of pressure exerted. The result is a resistor that starts with a high level of resistance and as presure is applied, the resistance drops.
 
-Use Case?
-=========
 
-When used as a sensor in a 3d printer for the purpose of auto-probing, the sensor is either placed under the print bed, at the three contact points in the case of a delta, and are used to detect when the head touches the print bed. In this manner, a mechanical switch probe and probe stick aren't required for auto-probing operations.
+How Are FSR(s) Used In 3D Printers?
+===================================
 
-What this code?
-===============
+In an attempt to make printing onto potentially unlevel beds easier, folks devised a way to probe the bed and based on those measurements,
+determine how to compensate for any deviations of an unlevel bed. Mechanical switches and other solutions are in use, but FSR(s) allow the
+entire bed to be a sensor, and thus negate the need for a probe on the effector, lowering its weight and reducing cables running to the
+print head.
 
-Because of differences in print bed weights, build tolerances, and other factors, the output from the FSR can vary and the effective threshold for when a trigger event happens, can change with some other mechanical or physical tweak occuring with the printer. To this end, folks have used things like potentiometers, firmware tuning, and other discreet component methods to adjust the threshold level.
-
-This code takes the approach of zeroing out for tare weight when applied to scales. The code will zero out and arrive at a "settled" level of pressure for a given moment in time. When sharp increase of pressure is detected, the setup will output a HIGH on the output feeding the z-MIN-STOP to simulate the auto-probe switch being triggered. If the HIGH state lasts longer than a TIMEOUT, the code will assume the situation has changed and will zero out the pressure reading again. 
-
-The code is meant to be run on an ATtiny85 or similar MCU with a built in ADC and digital out. The Mhz speed isn't entirely critical save for the TIMEOUT handling.
-
-Physical Setup
-==============
-
-* The FSR is wired between the 5V VCC source to the ADC input. 
-* A resistor is wired from 0V GND to the ADC input to privide the drain to zero.
-* The MCU(Attiny85/atmega328/arudino pro mini/etc) is flashed with the firmware that handles the logic.
-* The MCU is hooked up to the 5V power supply and to GND. (3.3V will work as well, so long as all voltages are at the 3.3V level).
-* An optional optical isolator can be used between the digital out of the MCU and the end stop connections to the 3d printer control board.
-
-Configurable Variables In Code
-================================
-
-* TIMEOUT - how long to latch up the output signal to HIGH before deciding that it should re-settle on that being the new "normal". Defaults to 250ms (1/4 second).
-* NOISE - variations of ADC reading to ignore and consider close enough to the average value to be considered "settled".
-* THRESHOLD - an increase of this much above ambient will represent a "hit" or "contact" and will trigger a HIGH on the digital output, subject to the TIMEOUT value/behaviour listed above.
 
 Credits/References/Shout Outs
 =============================
@@ -63,36 +61,19 @@ Credits/References/Shout Outs
 Getting Arduino To Work with ATTINY chips
 =========================================
 
-I got Arduino 1.5.x working with the following resource:
+You can use the Arduino/Trinket IDE that AdaFruit has published. The code will work with that IDE setup.
+
+Alternatively, you can use the Arduino Tiny project to add the ATTINY85 cores to your Arduino IDE environment:
 
 https://code.google.com/p/arduino-tiny/
 
 
-Planned Features
-================
-* External switch to adjust behaviour/toggle
-* Support for external LED or other indicator of internal acitivity
-* Independent reading and levelling for 3 FSR sensors
-* Independent status LED(s) for each sensor
-* LED status indicator support
-* Detect when FSR settles on a level that is too close to the ADC limit and alert
+Disclaimers
+===========
 
-Got a feature you are interested in me incorporating? Please file an issue. Thanks!
+I wrote this code for my own personal consumption. And while I have worked hard to ensure that the code is sane, bad things can happen, nonetheless.
 
-CHANGELOG
-==============
+Folks who have been following my development of this code should understand that this code, if it malfunctions, can result in damage to electronics that it has been wired up to including, but not limited to: burning out IO pins on your printer control board, causing your printer to ram the print head into the print bed, having your printer self destruct if it decides to home like crazy, etc. etc. 
 
-** March 30th, 2014 **
-* Fixed board defines
-* Verified working on ATtiny85 (single FSR)
+In any case, you've been warned. I take no responsibility for any potential or any actual damages that may happen. Maker beware. 
 
-** March 29th, 2014 **
-* Reworked code to cleanup setup and main loop.
-* Added configuration for single-shot sensor calibration vs continous sensor calibration
-* Added definitions to support multiple FSR sensor inputs
-* Added option to flip signal behaviour between LOW->HIGH  and HIGH->LOW
-* Took out serial debug lines
-
-** Initial Version **
-
-Initial code commit. Continous sensor recalibration.
