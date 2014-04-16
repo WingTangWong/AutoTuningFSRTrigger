@@ -118,7 +118,7 @@ unsigned long TRIGGER_LEVEL[3]={0,0,0};
 unsigned long TALLY[3]={0,0,0};
 unsigned long TOTAL[3]={0,0,0};
 unsigned long STATE[3]={0,0,0};
-unsigned long MARGIN = 10;
+unsigned long MARGIN = 50;
 long scratch;
 
 // the setup routine runs once when you press reset:
@@ -131,6 +131,7 @@ void setup() {
       pinMode( AD[scratch] , INPUT );
       digitalWrite( AD[scratch], LOW );
   };
+  do_calibration();
 }
 
 // the loop routine runs over and over again forever:
@@ -157,6 +158,9 @@ void do_read_average(int idx)
         } else {
           NOISE_LEVEL[idx] = (unsigned long)(( NOISE_LEVEL[idx] + ( AVERAGE[idx] - VALUE[idx] )) / 2.00);
         };
+        if ( NOISE_LEVEL[idx] < 20 ) {
+          NOISE_LEVEL[idx] = 20;
+        };
 };
 
 // If we determined we really need to calibrate, do it here.
@@ -176,6 +180,7 @@ void do_real_calibration()
     };
     TRIGGER_LEVEL[idx]=NOISE_LEVEL[idx] + MARGIN;
   };
+  PRECALIBRATION++;
 };
 
 
@@ -185,6 +190,7 @@ void do_calibration()
   if ( PRECALIBRATION < 1 ) {
     do_real_calibration();
   };
+  
 };
 
 
@@ -221,7 +227,8 @@ void do_output()
     digitalWrite( OUT, LOW );
     digitalWrite( LED, HIGH);
   } else {
-    digitalWrite( OUT, HIGH );
+    digitalWrite( OUT, HIGH
+    );
     digitalWrite( LED, LOW );    
   };
 };
