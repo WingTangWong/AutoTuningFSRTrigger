@@ -72,7 +72,7 @@
     * RSET can be left unconnected on the Trinket. On the bare ATTINY85, it can also be left unconnected, or pulled up via a 10k-50k ohm resistor
       hooked up to VCC.
     * ADC1, ADC2, ADC3 should be hooked up as follows:
-      * Pin pulled down to GND via a 4.7K ohm resistor. 
+      * Pin pulled down to GND via a 10K+ ohm resistor. 
       * Pin also connected to one leg of the FSR.
       * Other leg of FSR connected to VCC.
       * You can optionally place an LED in-line with the FSR and VCC so it illuminates when the FSR is pressed. Though this will not indicate
