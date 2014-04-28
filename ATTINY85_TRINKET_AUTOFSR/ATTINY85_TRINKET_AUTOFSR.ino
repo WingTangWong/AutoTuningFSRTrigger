@@ -112,10 +112,10 @@ int AD[3] = {2,4,3};  // Digital pin numbers correlating to the physical analog 
 unsigned long PRECALIBRATION=0;
 unsigned long SEED = 40;
 float VALUE[3]={0,0,0};
-flaot AVERAGE[3]={0,0,0};
-flaot NOISE_LEVEL[3]={8,8,8}; 
-flaot TRIGGER_LEVEL[3]={0,0,0};
-flaot RECOVERY_LEVEL[3]={0,0,0};
+float AVERAGE[3]={0,0,0};
+float NOISE_LEVEL[3]={8,8,8}; 
+float TRIGGER_LEVEL[3]={0,0,0};
+float RECOVERY_LEVEL[3]={0,0,0};
 unsigned long TALLY[3]={0,0,0};
 float TOTAL[3]={0,0,0};
 unsigned long STATE[3]={0,0,0};
@@ -165,7 +165,7 @@ void do_read_average(int idx)
 
   // bump up the noise... only if it is greater than the default noise already set
   if ( noise_delta > NOISE_LEVEL[idx]  ) {
-    NOSE_LEVEL[idx] = ( NOISE_LEVEL[idx] + noise_delta ) / 2.0;
+    NOISE_LEVEL[idx] = ( NOISE_LEVEL[idx] + noise_delta ) / 2.0;
   }; 
 };
 
