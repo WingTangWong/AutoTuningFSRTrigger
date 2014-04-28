@@ -119,7 +119,7 @@ float RECOVERY_LEVEL[3]={0,0,0};
 unsigned long TALLY[3]={0,0,0};
 float TOTAL[3]={0,0,0};
 unsigned long STATE[3]={0,0,0};
-unsigned long TRIGGER_ADJUST[3]={50,50,50};
+unsigned long TRIGGER_ADJUST[3]={60,60,60};
 unsigned long RECOVERY_ADJUST[3]={10,10,10};
 long scratch;
 
