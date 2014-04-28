@@ -111,14 +111,16 @@ int AD[3] = {2,4,3};  // Digital pin numbers correlating to the physical analog 
 // Various variables used for state and tracking calculations
 unsigned long PRECALIBRATION=0;
 unsigned long SEED = 40;
-unsigned long VALUE[3]={0,0,0};
-unsigned long AVERAGE[3]={0,0,0};
-unsigned long NOISE_LEVEL[3]={0,0,0};
-unsigned long TRIGGER_LEVEL[3]={0,0,0};
+float VALUE[3]={0,0,0};
+flaot AVERAGE[3]={0,0,0};
+flaot NOISE_LEVEL[3]={8,8,8}; 
+flaot TRIGGER_LEVEL[3]={0,0,0};
+flaot RECOVERY_LEVEL[3]={0,0,0};
 unsigned long TALLY[3]={0,0,0};
-unsigned long TOTAL[3]={0,0,0};
+float TOTAL[3]={0,0,0};
 unsigned long STATE[3]={0,0,0};
-unsigned long MARGIN = 50;
+unsigned long TRIGGER_ADJUST[3]={50,50,50};
+unsigned long RECOVERY_ADJUST[3]={10,10,10};
 long scratch;
 
 // the setup routine runs once when you press reset:
@@ -146,21 +148,25 @@ void loop() {
 // Also, get the noise level.
 void do_read_average(int idx)
 {
-        VALUE[idx]=analogRead( A[idx] );
-        delay(5);
-        VALUE[idx]=analogRead( A[idx] );
-        delay(5);
-        TOTAL[idx] = TOTAL[idx] + VALUE[idx];
-        TALLY[idx]++;
-        AVERAGE[idx] = ( TOTAL[idx] / TALLY[idx] );
-        if ( VALUE[idx] > AVERAGE[idx] ) {
-          NOISE_LEVEL[idx] = (unsigned long)(( NOISE_LEVEL[idx] + ( VALUE[idx] - AVERAGE[idx] )) / 2.00);
-        } else {
-          NOISE_LEVEL[idx] = (unsigned long)(( NOISE_LEVEL[idx] + ( AVERAGE[idx] - VALUE[idx] )) / 2.00);
-        };
-        if ( NOISE_LEVEL[idx] < 20 ) {
-          NOISE_LEVEL[idx] = 20;
-        };
+  float noise_delta;
+  // Take a single reading
+  delay(25); // delay 25 milliseconds
+  VALUE[idx] = analogRead( A[idx] );
+  TOTAL[idx] = TOTAL[idx] + VALUE[idx];
+  TALLY[idx]++;
+  // Update the average 
+  AVERAGE[idx] = ( TOTAL[idx] / TALLY[idx] );
+
+  if ( VALUE[idx] > AVERAGE[idx] ) {
+    noise_delta = ( VALUE[idx] - AVERAGE[idx] );
+  } else {
+    noise_delta = ( AVERAGE[idx] - VALUE[idx] );
+  };
+
+  // bump up the noise... only if it is greater than the default noise already set
+  if ( noise_delta > NOISE_LEVEL[idx]  ) {
+    NOSE_LEVEL[idx] = ( NOISE_LEVEL[idx] + noise_delta ) / 2.0;
+  }; 
 };
 
 // If we determined we really need to calibrate, do it here.
@@ -178,7 +184,8 @@ void do_real_calibration()
     } else {
       do_read_average(idx);
     };
-    TRIGGER_LEVEL[idx]=NOISE_LEVEL[idx] + MARGIN;
+    TRIGGER_LEVEL[idx]=NOISE_LEVEL[idx] + TRIGGER_ADJUST[idx];
+    RECOVERY_LEVEL[idx]=NOISE_LEVEL[idx] + RECOVERY_ADJUST[idx];
   };
   PRECALIBRATION++;
 };
@@ -199,15 +206,14 @@ void do_read_sensors()
 {
   int idx;
   for( idx=0; idx<3 ; idx++ ) {
+    // single read. multiple reads were not really effective
     VALUE[idx] = analogRead( A[idx] );
-    delay(5);
-    VALUE[idx] = analogRead( A[idx] );
-    delay(5);
-    VALUE[idx] = analogRead( A[idx] );
+    delay(25);
+
     if ( VALUE[idx] > ( AVERAGE[idx] + TRIGGER_LEVEL[idx]) ) {
       STATE[idx] = 1;
     };
-    if ( VALUE[idx] < ( AVERAGE[idx] + NOISE_LEVEL[idx]) ) {
+    if ( VALUE[idx] < ( AVERAGE[idx] + RECOVERY_LEVEL[idx]) ) {
       STATE[idx] = 0;
     };
   };
