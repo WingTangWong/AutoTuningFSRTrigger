@@ -13,6 +13,11 @@ ATTINY85_TRINKET_AUTOFSR
 * Auto calibrates against pressure already on FSR at boot. Hit reset to force a recalibration.
 
 
+BRANCHES
+========
+* Version-1.0 - This version works with 3 inputs and has decent input calibration/trigger levels.
+
+
 FSR Module In Action
 ====================
 * http://youtu.be/XGlE2bxdP1I
