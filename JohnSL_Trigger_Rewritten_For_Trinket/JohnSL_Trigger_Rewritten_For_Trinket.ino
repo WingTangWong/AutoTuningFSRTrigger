@@ -29,19 +29,11 @@
 #define FSR3        A3
 */
 
-// Note, since we are using analogRead, we can refer to the ADC numerical pins.
-// This is helpful for when compiling for the ADAfruit trinket. Will still
-// work when compiling for ATtiny85 in general
-#define FSR1        01
-#define FSR2        02
-#define FSR3        03
-
-
-
 // The end stop output
 #define TRIGGER     01
 
-short fsrPins[] = { FSR1, FSR2, FSR3 };     // Pins for each of the FSR analog inputs
+short fsrPins[] = { 2, 4, 3 };     // Pins for each of the FSR analog inputs
+short fsrAnalogNum[] = { 1, 2, 3 };     // Pins for each of the FSR analog inputs
 
 #define SHORT_SIZE 8
 #define LONG_SIZE 16
@@ -164,7 +156,7 @@ void loop()
 {
     for (uint8_t fsr = 0; fsr < 3; fsr++)
     {
-        int value = analogRead(fsrPins[fsr]);
+        int value = analogRead(fsrAnalogNum[fsr]);
 
         shortSamples[fsr][averageIndex[fsr]++] = value;
         if (averageIndex[fsr] >= SHORT_SIZE)

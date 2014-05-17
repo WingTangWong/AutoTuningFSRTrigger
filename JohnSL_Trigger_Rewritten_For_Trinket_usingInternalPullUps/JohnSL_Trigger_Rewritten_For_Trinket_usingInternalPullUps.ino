@@ -12,7 +12,6 @@
   Changes:
   * Changed the LED and endstop/output pin to pins 0 and 1
   * Changed the ADC chosen to be A1, A2, and A3. (A0 is the reset pin on the ATtiny85)
-  * Changed the circuit expectation to be a pull down resistor with FSR performing pull up.
   
   */
   
@@ -22,19 +21,11 @@
 #define LEDTRIGGER  01
 #define ENDSTOP     00
 
-// Define the pins used for the analog inputs that have the FSRs attached. These have external
-// 10K pull-up resistors.
-/*
-#define FSR1        A1
-#define FSR2        A2
-#define FSR3        A3
-*/
+// The end stop output
+#define TRIGGER     01
 
 short fsrPins[] = { 2, 4, 3 };     // Pins for each of the FSR analog inputs
 short fsrAnalogNum[] = { 1, 2, 3 };     // Pins for each of the FSR analog inputs
-
-// The end stop output
-#define TRIGGER     01
 
 #define SHORT_SIZE 8
 #define LONG_SIZE 16
@@ -62,7 +53,7 @@ void SetOutput(short fsr, bool state)
         any |= triggered[fsr];
     }
 
-    digitalWrite(LEDTRIGGER, any ? LOW : HIGH);
+    digitalWrite(LEDTRIGGER, any ? HIGH : LOW);
     digitalWrite(ENDSTOP, any ? HIGH : LOW);
 }
 
@@ -90,10 +81,9 @@ void setup()
 
     for (uint8_t fsr = 0; fsr < 3; fsr++)
     {
-        // Set the FSR lines for inputs without a pull-up since the board has external 10K
-        // pull-up resistors.
         pin = fsrPins[fsr];
         pinMode(pin, INPUT);
+        digitalWrite(pin, HIGH);  // Use the internal pull-up resistors.
     }
 
     // Set the green combined LED to on so it acts as a power-on indicator. We'll turn it
@@ -147,18 +137,15 @@ void CalculateThreshold(short fsr)
 
     uint16_t longAverage = UpdateLongSamples(fsr, value);
 
-    // Changed threshold calculation to be above the average, since we are
-    // switching the pullup circuit to a pulldown circuit.
-    uint16_t threshold = 1.08 * longAverage;
+    uint16_t threshold = 0.92 * longAverage;
 
-    // Changing the '<' to '>' since the circuit will now increase in value
-    // with pressure applied 
-    bool triggered = value > threshold;
+    bool triggered = value < threshold;
     SetOutput(fsr, triggered);
 }
 
 void loop()
 {
+//    uint8_t fsr = 8;
     for (uint8_t fsr = 0; fsr < 3; fsr++)
     {
         int value = analogRead(fsrAnalogNum[fsr]);
