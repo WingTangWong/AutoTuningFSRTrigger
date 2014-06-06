@@ -41,13 +41,13 @@ short fsrAnalogNum[] = { 1, 2, 3 };     // Pins for each of the FSR analog input
 
 unsigned long lastLongTime[3];              // Last time in millis that we captured a long-term sample
 uint16_t longSamples[3][LONG_SIZE];         // Used to keep a long-term average
-uint8_t longIndex[3] = {0, 0, 0};           // Index of the last long-term sample
+uint16_t longIndex[3] = {0, 0, 0};           // Index of the last long-term sample
 uint16_t longAverage[3] = {0, 0, 0};
 
 uint16_t shortSamples[3][SHORT_SIZE];       // Used to create an average of the most recent samples
-uint8_t averageIndex[3] = {0, 0, 0};
+uint16_t averageIndex[3] = {0, 0, 0};
 
-uint8_t pin=0;                              // Defining a global pin variable that is used in the code.
+uint16_t pin=0;                              // Defining a global pin variable that is used in the code.
 
 void SetOutput(short fsr, bool state)
 {
@@ -56,7 +56,7 @@ void SetOutput(short fsr, bool state)
     triggered[fsr] = state;
     
     bool any = false;
-    for (uint8_t fsr = 0; fsr < 3; fsr++)
+    for (uint16_t fsr = 0; fsr < 3; fsr++)
     {
         any |= triggered[fsr];
     }
@@ -67,16 +67,16 @@ void SetOutput(short fsr, bool state)
 
 void InitValues()
 {
-    for (uint8_t fsr = 0; fsr < 3; fsr++)
+    for (uint16_t fsr = 0; fsr < 3; fsr++)
     {
-        for (uint8_t i = 0; i < SHORT_SIZE; i++)
+        for (uint16_t i = 0; i < SHORT_SIZE; i++)
             shortSamples[fsr][i] = 0;
 
-        for (uint8_t i = 0; i < LONG_SIZE; i++)
+        for (uint16_t i = 0; i < LONG_SIZE; i++)
             longSamples[fsr][i] = 0;
     }
 
-    for (uint8_t fsr = 0; fsr < 3; fsr++)
+    for (uint16_t fsr = 0; fsr < 3; fsr++)
         lastLongTime[fsr] = millis();
 }
 
@@ -87,7 +87,7 @@ void setup()
 {
     InitValues();
 
-    for (uint8_t fsr = 0; fsr < 3; fsr++)
+    for (uint16_t fsr = 0; fsr < 3; fsr++)
     {
         // Set the FSR lines for inputs without a pull-up since the board has external 10K
         // pull-up resistors.
@@ -154,7 +154,7 @@ void CalculateThreshold(short fsr)
 
 void loop()
 {
-    for (uint8_t fsr = 0; fsr < 3; fsr++)
+    for (uint16_t fsr = 0; fsr < 3; fsr++)
     {
         int value = analogRead(fsrAnalogNum[fsr]);
 
