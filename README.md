@@ -6,6 +6,10 @@ Arduino code to facilitate auto-tuning of a force sensing resistor for triggerin
 
 # <<< This code is deprecated and no longer supported. >>>
 
+FSR Reference Docs
+==================
+* https://www.sparkfun.com/datasheets/Sensors/Pressure/fsrguide.pdf
+
 
 ATTINY85_TRINKET_AUTOFSR  aka Version 1.0
 ==========================================
