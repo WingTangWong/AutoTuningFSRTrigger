@@ -83,6 +83,20 @@ int idx;
 //
 // Main Setup
 //
+/**
+ * @brief Initializes the microcontroller, board configuration, pin modes, and performs initial sensor calibration.
+ * @details
+ * This function is called once at power-up or reset. It performs the following key actions:
+ * 1. Sets the `currentBoard` type (e.g., `BoardType::ADAFRUIT_TRINKET_X3`).
+ * 2. Sets `isDebugMode` (currently to `false`).
+ * 3. Calls `do_board_setup()` to configure board-specific pin assignments and initialize sensor arrays based on `currentBoard`.
+ * 4. Calls `do_pin_setup()` to set the pinMode for output, trigger, calibration, LED, and FSR pins.
+ * 5. Calls `do_calibration()` to perform the initial FSR calibration sequence.
+ * @note Modifies global variables: `currentBoard`, `isDebugMode`. Initializes many other global sensor state variables via called functions.
+ * @see do_board_setup()
+ * @see do_pin_setup()
+ * @see do_calibration()
+ */
 void setup() {
   // Select your board type!
   currentBoard = BoardType::ADAFRUIT_TRINKET_X3; // Choose your board! If you chose a TRINKET type board, make sure TRINKET is defined.
@@ -96,6 +110,17 @@ void setup() {
 //
 // Main program loop
 //
+/**
+ * @brief Main execution loop, called repeatedly after `setup()`.
+ * @details
+ * This function continuously performs the following actions:
+ * 1. Calls `do_sensor()` to read FSR values, update their states (triggered/not triggered), and manage LED indicators.
+ * 2. Calls `do_trigger()` to update the main system trigger output based on individual FSR states.
+ * 3. Periodically, `do_calibration()` (called from within `do_sensor()` or explicitly if uncommented) may run to recalibrate sensors if conditions are met.
+ * @note Relies heavily on global variables for state management.
+ * @see do_sensor()
+ * @see do_trigger()
+ */
 void loop() {
   do_sensor(); // Get readings. If readings sufficient, act on them.
   do_trigger(); // Update trigger and LED statuses
@@ -104,6 +129,21 @@ void loop() {
 //
 // Function implementations
 //
+/**
+ * @brief Configures board-specific parameters like pin assignments and sensor count.
+ * @details
+ * This function initializes hardware-specific settings based on the globally set `currentBoard` type.
+ * Key actions include:
+ * 1. Initializes all FSR-related global arrays (e.g., `fsrValues`, `fsrAverages`, `fsrStates`) to zero or default states.
+ * 2. Based on `currentBoard`, sets:
+ *    - `outputPin`, `triggerPin`, `calibratePin`.
+ *    - `sensorCount` (number of FSRs to use).
+ *    - `ledPins[]` array with pin numbers for LED indicators.
+ *    - `fsrPins[]` array with analog pin numbers for FSR inputs.
+ *    - `isX3Mode` flag (true if pins are shared for FSR input and LED output, e.g., on ATtiny85 X3 configurations).
+ * @note Modifies global variables: `fsrValues`, `fsrAverages`, `fsrNoiseLevels`, `fsrTriggerLevels`, `fsrTallies`, `fsrTotals`, `fsrNoiseLevelMax`, `fsrStates`, `outputPin`, `triggerPin`, `calibratePin`, `sensorCount`, `ledPins`, `fsrPins`, `isX3Mode`.
+ * @globalvar currentBoard Determines which board configuration is applied.
+ */
 void do_board_setup() {
   int idx;
   // Trinket's IDE handling code. Since they do not define A1, A2, A3....
@@ -206,6 +246,22 @@ void do_board_setup() {
   }
 }
 
+/**
+ * @brief Performs the actual FSR calibration process for all sensors.
+ * @details
+ * This function is the core of the calibration logic. For each sensor:
+ * 1. Sets the FSR input pin to `INPUT` mode.
+ * 2. **Initial Seeding:** If the sensor has not been calibrated sufficiently ( `fsrTallies[idx] < CALIBRATION_SEED`), it takes `CALIBRATION_SEED + 1` readings, sums them, and calculates an initial `fsrAverages[idx]`.
+ * 3. **Running Average Update:** Takes a new analog reading (`fsrValues[idx]`) and updates `fsrAverages[idx]` using a simple running average: `(previous_average + current_value) / 2`.
+ * 4. **Noise Level Calculation:** Calculates the absolute difference between the current reading and the updated average. This difference is then averaged into `fsrNoiseLevels[idx]`.
+ * 5. **Noise Floor Adjustment:** Adds a fixed value (8) to `fsrNoiseLevels[idx]`. This is an empirical adjustment to ensure the noise floor isn't set too low.
+ * 6. **Maximum Noise Level Tracking:** Updates `fsrNoiseLevelMax[idx]` if the current `fsrNoiseLevels[idx]` is greater. `fsrNoiseLevelMax` itself is also averaged over time.
+ * 7. **Trigger Threshold Setting:** Sets `fsrTriggerLevels[idx]` to the current `fsrNoiseLevelMax[idx]`. The trigger condition is typically `current_reading > average_reading + trigger_level`.
+ * 8. Updates `lastCalibrationTimestamp`.
+ * 9. After calibrating all sensors, sets the LED pins back to `OUTPUT` mode and turns them off.
+ * @note Modifies global variables: `fsrValues`, `fsrTotals`, `fsrTallies`, `fsrAverages`, `fsrNoiseLevels`, `fsrNoiseLevelMax`, `fsrTriggerLevels`, `lastCalibrationTimestamp`.
+ * @note Changes pin modes for FSR pins (to INPUT) and LED pins (to OUTPUT).
+ */
 void do_real_calibration() {
   int idx;
   int run;
@@ -257,6 +313,19 @@ void do_real_calibration() {
   }
 }
 
+/**
+ * @brief Manages the FSR calibration process, deciding when to call `do_real_calibration()`.
+ * @details
+ * This function controls the calibration timing and conditions:
+ * 1. **Initial Priming:** If calibration has not run before (`!hasCalibrationRun`), it calls `do_real_calibration()` multiple times (currently 5 times with a short delay) to allow the sensor averages and noise levels to stabilize. Sets `hasCalibrationRun = true` afterwards.
+ * 2. **Periodic Recalibration:** If the time elapsed since `lastCalibrationTimestamp` exceeds `calibrationIntervalMs` AND the system is not currently in a triggered state (`systemTriggerState == false`), it calls `do_real_calibration()` to update calibration values.
+ * @note Modifies global variables: `hasCalibrationRun` (indirectly via `do_real_calibration()`: `lastCalibrationTimestamp`).
+ * @globalvar hasCalibrationRun Tracks if the initial calibration sequence has completed.
+ * @globalvar lastCalibrationTimestamp Timestamp of the last successful `do_real_calibration()` run.
+ * @globalvar calibrationIntervalMs Interval at which recalibration is considered.
+ * @globalvar systemTriggerState Prevents recalibration if the system is actively triggered.
+ * @see do_real_calibration()
+ */
 void do_calibration() {
   int idx;
   int run;
@@ -279,6 +348,32 @@ void do_calibration() {
   }
 }
 
+/**
+ * @brief Reads FSR sensor values, updates their states, and manages LED indicators.
+ * @details
+ * This function is responsible for the primary sensing loop:
+ * 1. **Pin Mode Setup (X3 Mode):** If `isX3Mode` is true, it iterates through FSR pins and sets them to `INPUT` mode with `digitalWrite(pin, LOW)` (disabling pull-ups, ensuring high impedance). This is necessary because pins are shared for input (FSR) and output (LED).
+ * 2. **Sensor Reading:** For each sensor:
+ *    - Takes two consecutive analog readings from the `fsrPins[idx]`. The second reading is used (the first may help stabilize the ADC).
+ *    - Updates `fsrValues[idx]` with the reading.
+ * 3. **State Update:**
+ *    - If `fsrValues[idx]` is greater than `(fsrAverages[idx] + fsrTriggerLevels[idx])`, sets `fsrStates[idx] = true` (triggered).
+ *    - If `fsrValues[idx]` is less than `(fsrAverages[idx] + fsrNoiseLevelMax[idx])`, sets `fsrStates[idx] = false` (not triggered).
+ *      (Note: `fsrTriggerLevels` and `fsrNoiseLevelMax` are often the same after calibration, providing a basic hysteresis based on how `fsrAverages` and `fsrNoiseLevelMax` adapt).
+ * 4. **LED Update:** For each sensor:
+ *    - Sets the corresponding `ledPins[idx]` to `OUTPUT` mode.
+ *    - If `fsrStates[idx]` is true, turns the LED HIGH; otherwise, turns it LOW.
+ * @note Modifies global variables: `fsrValues`, `fsrStates`.
+ * @note Changes pin modes for FSR pins (if `isX3Mode`) and LED pins.
+ * @globalvar isX3Mode Affects pin mode handling for FSR inputs.
+ * @globalvar fsrPins Array of FSR input pins.
+ * @globalvar fsrValues Array to store current FSR readings.
+ * @globalvar fsrAverages Array of calibrated average FSR readings.
+ * @globalvar fsrTriggerLevels Array of trigger thresholds for FSRs.
+ * @globalvar fsrNoiseLevelMax Array of maximum noise levels for FSRs.
+ * @globalvar fsrStates Array indicating the trigger state of each FSR.
+ * @globalvar ledPins Array of LED output pins.
+ */
 void do_sensor() {
   int idx;
   int pin;
@@ -327,6 +422,26 @@ void do_sensor() {
   }
 }
 
+/**
+ * @brief Updates the main system trigger output based on the collective state of FSR sensors.
+ * @details
+ * This function iterates through all configured sensors:
+ * 1. For each sensor:
+ *    - If `fsrStates[idx]` is true (sensor is triggered):
+ *      - Sets the corresponding `ledPins[idx]` to `OUTPUT` and HIGH (redundant if `do_sensor()` just did this, but ensures LED state).
+ *      - Sets the main `outputPin` to LOW (active state for a Normally Closed setup).
+ *      - Increments `finalState`.
+ *    - If `fsrStates[idx]` is false:
+ *      - Sets the corresponding `ledPins[idx]` to `OUTPUT` and LOW.
+ *      - Decrements `finalState`.
+ * 2. After checking all sensors, if `finalState` is less than 1 (meaning no sensors are actively triggered, or more sensors are explicitly 'off' than 'on' if logic were more complex), it sets the `outputPin` to HIGH (inactive state for Normally Closed).
+ * @note Modifies the state of `outputPin` and `ledPins[]`.
+ * @note The `finalState` logic is a simple way to OR the trigger conditions: if any sensor is on, the output is active. If all are off, it's inactive.
+ * @globalvar fsrStates Array indicating the trigger state of each FSR.
+ * @globalvar ledPins Array of LED output pins.
+ * @globalvar outputPin The main system trigger output pin.
+ * @globalvar sensorCount Number of sensors to check.
+ */
 void do_trigger() {
   int finalState = 0;
   int idx;
@@ -350,6 +465,26 @@ void do_trigger() {
   }
 }
 
+/**
+ * @brief Sets up the initial pin modes for various control and sensor pins.
+ * @details
+ * This function configures the `pinMode` for several types of pins:
+ * 1. **`outputPin`:** Set to `OUTPUT` and initialized to `HIGH`. This is the main trigger signal output, typically emulating a Normally Closed (NC) switch (HIGH = not triggered, LOW = triggered).
+ * 2. **`triggerPin`:** Set to `INPUT_PULLUP` (by setting to `INPUT` then `digitalWrite(pin, HIGH)`). This pin can be used for an external manual trigger or other control.
+ * 3. **`calibratePin`:** Set to `INPUT_PULLUP`. This pin can be used to manually initiate a recalibration sequence.
+ * 4. **LED Pins (`ledPins[]`):** For each sensor, sets the corresponding LED pin to `OUTPUT` and initializes it to `LOW` (off).
+ * 5. **FSR Pins (`fsrPins[]`):**
+ *    - If `isX3Mode` is `false` (dedicated FSR pins): Sets each FSR pin to `INPUT` and writes `LOW` to it (disables internal pull-up, ensuring high impedance for analog reading).
+ *    - If `isX3Mode` is `true` (shared pins): Pin modes are handled dynamically in `do_sensor()`.
+ * @note Modifies pin modes and initial states of `outputPin`, `triggerPin`, `calibratePin`, `ledPins[]`, and `fsrPins[]` (if not in X3 mode).
+ * @globalvar outputPin The main system trigger output pin.
+ * @globalvar triggerPin External trigger input pin.
+ * @globalvar calibratePin Manual calibration input pin.
+ * @globalvar ledPins Array of LED output pins.
+ * @globalvar fsrPins Array of FSR input pins.
+ * @globalvar sensorCount Number of sensors/pins to configure.
+ * @globalvar isX3Mode Affects whether FSR pin modes are set here or dynamically.
+ */
 void do_pin_setup() {
   int idx;
   // Output trigger pin. Default is NC / Normall Connected mode. So high!

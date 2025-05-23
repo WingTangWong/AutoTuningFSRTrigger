@@ -1,101 +1,110 @@
-AutoTuning FSR Trigger
-======================
+# AutoTuning FSR Trigger
 
-Arduino code to facilitate auto-tuning of a force sensing resistor for triggering end stops and auto probes for 3d printer auto-levelling.
+## Overview
 
+This Arduino-based project provides firmware for auto-tuning Force Sensing Resistors (FSRs). It's designed primarily for applications like 3D printer Z-axis end stops and auto-bed leveling probes, but can be adapted for other pressure-sensing needs.
 
-# <<< This code is deprecated and no longer supported. >>>
+The codebase is currently undergoing active refactoring and enhancement to improve clarity, modularity, hardware portability, and documentation. The primary development version is based on the `Legacy/AutoTuningFSRTrigger.ino` sketch.
 
-FSR Reference Docs
-==================
-* https://www.sparkfun.com/datasheets/Sensors/Pressure/fsrguide.pdf
+## Core Features (Based on `Legacy/AutoTuningFSRTrigger.ino`)
 
+*   **Multiple FSR Inputs:** Supports 1 or 3 FSR inputs, depending on the selected board configuration.
+*   **Auto-Calibration:**
+    *   Performs an initial calibration routine at startup to establish baseline FSR readings.
+    *   Includes a mechanism for periodic re-calibration if the system is not in a triggered state, allowing it to adapt to slow environmental changes.
+*   **Digital Trigger Output:** Provides a digital output signal (HIGH/LOW) that changes state when significant pressure on an FSR is detected. By default, this emulates a Normally Closed (NC) switch suitable for many 3D printer endstop inputs.
+*   **LED Status Indicators:** Utilizes LEDs to indicate the trigger status of the FSRs.
+*   **Multi-Board Compatibility:** The firmware is designed to be configurable for various common Arduino-compatible microcontrollers:
+    *   ATtiny85 / Adafruit Trinket (supports 1 FSR, or 3 FSRs using "X3" pin-sharing mode)
+    *   ATtiny84 (supports up to 3 FSRs)
+    *   Arduino Uno / ATmega328P (supports up to 3 FSRs)
+    *   Arduino Mega (supports up to 3 FSRs)
+*   **X3 Pin-Sharing Mode (ATtiny85):** A special mode for ATtiny85-based boards (like Adafruit Trinket) that allows three FSR inputs and corresponding LED indicators by sharing microcontroller pins. These pins dynamically switch between analog input (for FSR reading) and digital output (for LED control).
 
-ATTINY85_TRINKET_AUTOFSR  aka Version 1.0
-==========================================
-* ATTINY85 and AdaFruit Trinket version of the code.
-* Supports standalone 1Mhz internal OSC ATTINY85
-* Supports the AdaFruit Trinket board in 8Mhz or 16Mhz mode(really doesn't matter)
-* Takes reading from 3 FSR sensors
-* Auto calibrates against pressure already on FSR at boot. Hit reset to force a recalibration.
+## How it Works (Briefly)
 
-AutoFSRStandard
-================
-* Slimmed down version of the ATTINY85_TRINKET_AUTOFSR code
-* Does not try to take into account the other board types.
-* 3 x FSR inputs from ADC1, ADC2, and ADC3
-* output on pins 0 and 1
- 
+1.  **Initialization:** On startup, the system initializes pins and performs an initial calibration.
+2.  **Calibration:**
+    *   During calibration, the firmware reads baseline analog values from each FSR to determine a stable average resting state.
+    *   It also calculates a noise level based on fluctuations in these readings.
+    *   Trigger thresholds are then established based on these calibrated averages and noise levels.
+3.  **Sensing Loop:**
+    *   Continuously reads the current analog values from the FSRs.
+    *   Compares these current readings against the calibrated thresholds.
+    *   If a reading surpasses the trigger threshold (indicating pressure), the output signal changes state, and the corresponding LED is activated.
+    *   The system includes logic for periodic re-calibration if it remains untriggered for a defined interval.
 
-AutoFSRFast
-============
-* Further slimmed down version of the code base
-* Single FSR input via ADC1
-* output pins on 0 and 1
-* Tight loop
- 
+## Getting Started
 
-FSR Module In Action
-====================
-* http://youtu.be/XGlE2bxdP1I
-* http://youtu.be/ziHav-B4uYc
+### Hardware Requirements
 
+*   An Arduino-compatible board (see list of supported boards above).
+*   One or more Force Sensing Resistors (FSRs).
+*   Pull-down resistors (e.g., 10k Ohm) for each FSR.
+*   (Optional) LEDs for status indication, with appropriate current-limiting resistors if not already on the board.
 
-Description & Background
-========================
+### Wiring FSRs (Pull-Down Configuration)
 
-I wrote this code to solve a specific problem: not wanting to turn dials on a potentiometer to adjust for different weights and pressures
-on the FRS sensor when placed under a print plate. My goal was to have a nearly drop in solution for a Z-axis Min End stop.
+The firmware generally assumes FSRs are wired in a voltage divider configuration using pull-down resistors:
 
-After some discussion on the DeltaBot Google Group, I decided to write some code and test my idea out on an Arduino Uno board.
+*   Connect one terminal of the FSR to VCC (e.g., 5V or 3.3V, depending on your board).
+*   Connect the other terminal of the FSR to an analog input pin on your microcontroller.
+*   Connect one terminal of a pull-down resistor (e.g., 10k Ohm) to the same analog input pin.
+*   Connect the other terminal of the pull-down resistor to GND.
 
-However, that seemed like overkill, so I retooled the code to work on an ATtiny85 MCU. Apparently, there are several boards out there 
-that uses that MCU as the processor on their tiny boards. Ie, the AdaFruit Trinket. Too cool.
+With this setup, applying pressure to the FSR decreases its resistance, leading to a higher voltage (and thus a higher analog reading) at the ADC pin.
 
-While writing the code and testing, someone asked me whether I could have independent inputs for each of the three FSR. I started tinkering
-with the code and the result is this code.
+Refer to the `do_board_setup()` function within the `Legacy/AutoTuningFSRTrigger.ino` sketch for specific pin assignments (analog inputs, LED outputs, trigger output) for each supported board type. Detailed wiring diagrams will be added to the `/docs` folder in the future.
 
+### Software Setup
 
+1.  **Arduino IDE:** Download and install the latest version of the Arduino IDE.
+2.  **Board Support Packages:**
+    *   Ensure you have the necessary board support packages installed for your chosen microcontroller.
+    *   For ATtiny85/84, this typically involves installing a core like "ATtinyCore by Spence Konde" or "arduino-tiny" via the Arduino Board Manager.
+3.  **Configure Target Board in Code:**
+    *   Open `Legacy/AutoTuningFSRTrigger.ino` in the Arduino IDE.
+    *   Locate the `setup()` function.
+    *   Modify the line `currentBoard = BoardType::ADAFRUIT_TRINKET_X3;` to select your target board from the `BoardType` enum (e.g., `BoardType::ARDUINO_UNO`, `BoardType::ATTINY85`, etc.).
+4.  **Compile and Upload:** Select your board and programmer in the Arduino IDE, then compile and upload the sketch.
 
-What Are FSR(Force Sensing Resistors)?
-======================================
+## FSR Information
 
-FSR(s) are resistors that have conductive material sandwiched between two layers. When pressure is applied, the conductive bits come into contact in degrees relative to the amount of pressure exerted. The result is a resistor that starts with a high level of resistance and as presure is applied, the resistance drops.
+### What Are FSRs?
 
+Force Sensing Resistors are devices whose resistance changes when a force or pressure is applied. They typically consist of a conductive polymer that changes resistance in a predictable manner when deformed. FSRs are not precision load cells but are very useful for detecting force and pressure in a wide range of applications.
+(See also: [SparkFun FSR Guide](https://www.sparkfun.com/datasheets/Sensors/Pressure/fsrguide.pdf))
 
-How Are FSR(s) Used In 3D Printers?
-===================================
+### How Are FSRs Used in 3D Printers?
 
-In an attempt to make printing onto potentially unlevel beds easier, folks devised a way to probe the bed and based on those measurements,
-determine how to compensate for any deviations of an unlevel bed. Mechanical switches and other solutions are in use, but FSR(s) allow the
-entire bed to be a sensor, and thus negate the need for a probe on the effector, lowering its weight and reducing cables running to the
-print head.
+In 3D printing, FSRs can be placed under the print bed. When the nozzle touches the bed during probing or homing, the pressure on the FSRs changes, which can be detected by the microcontroller. This signal is then used as a Z-axis endstop or for auto-bed leveling routines, allowing the printer to compensate for uneven bed surfaces. Using FSRs can sometimes simplify effector design by removing the need for a separate mechanical probe.
 
+## Toolchain Notes for ATtiny Microcontrollers
 
-Credits/References/Shout Outs
-=============================
+*   **Adafruit Trinket/Gemma:** These boards often come with a USB bootloader. Adafruit provides a customized Arduino IDE setup or instructions for adding their boards via the Board Manager, which simplifies programming.
+*   **Bare ATtiny85/84 Chips:**
+    *   You will typically need an ISP (In-System Programmer) like a USBasp, USBtinyISP, or an Arduino configured as an ISP to program these chips.
+    *   **Fuse Settings:** For ATtiny microcontrollers, correct fuse settings are critical for proper operation, especially for clock speed. For example, to run an ATtiny85 at 8MHz using its internal oscillator (without the default /8 prescaler), specific fuse values must be programmed using a tool like `avrdude`. Refer to the `Notes/ATTiny85-Fusebits-8MhzInternalClock.md` file for an example. Incorrect fuse settings can lead to issues with timing (e.g., `delay()` being too fast or slow) or even render the chip unresponsive to programmers.
 
-* Thanks to the DeltaBot Google Group for introducing me to FSR(s)!
- * https://groups.google.com/forum/#!forum/deltabot
-* Thanks to Rich for the awesome mod to the Marlin firmware to support the auto-probing.
- * https://github.com/RichCattell/Marlin
+## Future Development
 
-Getting Arduino To Work with ATTINY chips
-=========================================
+This codebase is being actively refactored with the following goals:
 
-You can use the Arduino/Trinket IDE that AdaFruit has published. The code will work with that IDE setup.
+*   **Improved Modularity:** Breaking down the code into logical, reusable modules (e.g., sensor handling, calibration, hardware abstraction).
+*   **Enhanced Portability:** Abstracting hardware-specific details to make it easier to support new microcontrollers. Planned targets include STM8 and STM32 families.
+*   **Comprehensive Documentation:** Improving code comments, providing detailed setup guides, and creating clear API documentation where applicable.
+*   **Robust Build System:** Implementing conditional compilation and build profiles for different target platforms.
 
-Alternatively, you can use the Arduino Tiny project to add the ATTINY85 cores to your Arduino IDE environment:
+## Disclaimer
 
-https://code.google.com/p/arduino-tiny/
+This code is provided as-is. The original author and subsequent contributors take no responsibility for any potential or actual damages that may result from its use. This includes, but is not limited to, damage to 3D printers, electronics, or any other equipment. Users should test thoroughly in a safe environment. Maker beware.
 
+## Credits and References
 
-Disclaimers
-===========
+*   Original FSR auto-tuning concept and code by Wing Tang Wong.
+*   Thanks to the DeltaBot Google Group for inspiration and discussion on FSRs in 3D printing.
+*   Thanks to Rich Cattell for modifications to the Marlin firmware for auto-probing. ([RichCattell/Marlin](https://github.com/RichCattell/Marlin))
+*   [SparkFun FSR Integration Guide](https://www.sparkfun.com/datasheets/Sensors/Pressure/fsrguide.pdf)
+*   [Arduino Tiny Cores (for ATtiny support)](https://code.google.com/p/arduino-tiny/) (Note: This is an older link; modern alternatives like Spence Konde's ATtinyCore are widely used).
 
-I wrote this code for my own personal consumption. And while I have worked hard to ensure that the code is sane, bad things can happen, nonetheless.
-
-Folks who have been following my development of this code should understand that this code, if it malfunctions, can result in damage to electronics that it has been wired up to including, but not limited to: burning out IO pins on your printer control board, causing your printer to ram the print head into the print bed, having your printer self destruct if it decides to home like crazy, etc. etc. 
-
-In any case, you've been warned. I take no responsibility for any potential or any actual damages that may happen. Maker beware. 
-
+```
