@@ -27,389 +27,357 @@
 
 */
 
-// Attempt fix for a compile bug for when I have multiple calls to functions
-
-
-
-// 
+//
 // Function definitions
-// 
+//
 void do_sensor();
 void do_pin_setup();
 void do_calibration();
-// void do_show_state();
 void do_board_setup();
 void do_trigger();
-void do_led();
-//
-// Global Variables 
-//
 
-int ATMEGA328P = 0;
-int ARDUINO_UNO = 0;
-int ARDUINO_MEGA = 1;
-int ATTINY85 = 2;
-int ADAFRUIT_TRINKET = 2;
-int ATTINY84 = 3;
-int ADAFRUIT_TRINKETX3 = 4;
-int ATTINY85X3 = 5;
-bool X3 = true;
+//
+// Global Variables
+//
+enum class BoardType : int {
+  ATMEGA328P = 0,
+  ARDUINO_UNO = 0, // Note: Same value as ATMEGA328P
+  ARDUINO_MEGA = 1,
+  ATTINY85 = 2,
+  ADAFRUIT_TRINKET = 2, // Note: Same value as ATTINY85
+  ATTINY84 = 3,
+  ADAFRUIT_TRINKET_X3 = 4,
+  ATTINY85_X3 = 5
+};
+
+// Flag to indicate if FSR input pins are shared with LED output pins (X3 mode)
+bool isX3Mode = false;
 const int MAX_SENSORS = 3;
-int seed = 5;
-int ledPINS[MAX_SENSORS];
-int fsrPINS[MAX_SENSORS];
-bool fsrSTATE[MAX_SENSORS];
-
-
-
+const int CALIBRATION_SEED = 5;
+int ledPins[MAX_SENSORS];
+int fsrPins[MAX_SENSORS];
+bool fsrStates[MAX_SENSORS];
 
 // The FSR read values, running average, Noise Level, and Trigger Levels
-unsigned long fsrVAL[MAX_SENSORS];
-unsigned long fsrAVG[MAX_SENSORS];
-unsigned long fsrNL[MAX_SENSORS];
-unsigned long fsrTL[MAX_SENSORS];
-unsigned long fsrTALLY[MAX_SENSORS];
-unsigned long fsrTOTAL[MAX_SENSORS];
-unsigned long fsrNLmax[MAX_SENSORS];
+unsigned long fsrValues[MAX_SENSORS];
+unsigned long fsrAverages[MAX_SENSORS];
+unsigned long fsrNoiseLevels[MAX_SENSORS];
+unsigned long fsrTriggerLevels[MAX_SENSORS];
+unsigned long fsrTallies[MAX_SENSORS];
+unsigned long fsrTotals[MAX_SENSORS];
+unsigned long fsrNoiseLevelMax[MAX_SENSORS];
 
-int BOARD;
-bool DEBUG;
-bool calibration_HAS_RUN = false;
-unsigned long calibration_LAST_RUN=millis();
-unsigned long calibration_INTERVAL=500; // milliseconds between recalibration intervals?
-int outputPIN;
-int triggerPIN;
-int calibratePIN;
-int sensors;
-bool triggerSTATE = false;
+BoardType currentBoard;
+bool isDebugMode;
+bool hasCalibrationRun = false;
+unsigned long lastCalibrationTimestamp = millis();
+unsigned long calibrationIntervalMs = 500; // milliseconds between recalibration intervals?
+int outputPin;
+int triggerPin;
+int calibratePin;
+int sensorCount;
+bool systemTriggerState = false;
 
 int idx;
 
-// Uncomment the following if you are using the Trinket Board!
-// #define TRINKET 1
-
-
-// 
-// Main Setup 
 //
-void setup() {  
+// Main Setup
+//
+void setup() {
   // Select your board type!
-  BOARD = ADAFRUIT_TRINKETX3;     // Choose your board! If you chose a TRINKET type board, make sure TRINKET is defined.
-  DEBUG = false;                 // Are we doing debug?
-  
+  currentBoard = BoardType::ADAFRUIT_TRINKET_X3; // Choose your board! If you chose a TRINKET type board, make sure TRINKET is defined.
+  isDebugMode = false; // Are we doing debug?
+
   do_board_setup();
-  do_pin_setup();            // Let's setup the pins. Using function, want to keep this file clean.
-  do_calibration();         // Let's do the initial calibration
-
-  // Note, debug only supported for UNO and MEGA boards. Sorry. 
-  /*  Uncomment for UNO and MEGA boards
-  if ( ( DEBUG == true )  && ( ( BOARD == ARDUINO_UNO ) || ( BOARD == ARDUINO_MEGA ) ) ) {
-      Serial.begin(38400);  
-      Serial.println(" ");
-      Serial.println(" ");
-      Serial.println(" ");
-      Serial.print( "# " );  // Non-metric lines are prefixed with a "#"
-      Serial.print( millis() );
-      Serial.print( " : " );
-      Serial.println(">> Board Startup");
-
-      do_show_state();        // Display the current values/etc. to the serial connection.
-  };
-  */
-   
-};
-
+  do_pin_setup(); // Let's setup the pins. Using function, want to keep this file clean.
+  do_calibration(); // Let's do the initial calibration
+}
 
 //
 // Main program loop
 //
 void loop() {
-  do_sensor();       // Get readings. If readings sufficient, act on them.
-  do_trigger();      // Update trigger and LED statuses
-  // Uncomment this to support continous calibration. Disabled for now. Doesn't work in several cases.
-  //do_calibration();  // If calibration required, enabled, or triggered, do it. 
-  // do_show_state();        // Display the current values/etc. to the serial connection.
+  do_sensor(); // Get readings. If readings sufficient, act on them.
+  do_trigger(); // Update trigger and LED statuses
+}
 
-};
-
-
-// 
+//
 // Function implementations
-// 
-
+//
 void do_board_setup() {
   int idx;
-// Trinket's IDE handling code. Since they do not define A1, A2, A3....
-/*
-#ifdef  TRINKET 
-  #define A0  0
-  #define A1  2
-  #define A2  4
-  #define A3  3
-#endif
-*/
+  // Trinket's IDE handling code. Since they do not define A1, A2, A3....
 
   // Initialize the various fsr values
-  for( idx=0; idx< MAX_SENSORS; idx++) {
-    fsrVAL[idx]=0;
-    fsrAVG[idx]=0;
-    fsrNL[idx]=0;
-    fsrTL[idx]=0;
-    fsrTALLY[idx]=0;
-    fsrTOTAL[idx]=0;
-    fsrNLmax[idx]=0;
-    fsrSTATE[idx]=false;
-  };
- 
-  // http://learn.adafruit.com/downloads/pdf/introducing-trinket.pdf 
-  if ( ( BOARD == ATTINY85 ) || ( BOARD == ADAFRUIT_TRINKET ) )
-  {
-    outputPIN    = 0;
-    triggerPIN   =  4;
-    calibratePIN =  2;
-    sensors      =  1;
+  for (idx = 0; idx < MAX_SENSORS; idx++) {
+    fsrValues[idx] = 0;
+    fsrAverages[idx] = 0;
+    fsrNoiseLevels[idx] = 0;
+    fsrTriggerLevels[idx] = 0;
+    fsrTallies[idx] = 0;
+    fsrTotals[idx] = 0;
+    fsrNoiseLevelMax[idx] = 0;
+    fsrStates[idx] = false;
+  }
 
-    ledPINS[0]           = 1;
-    ledPINS[1]           = 1;
-    ledPINS[2]           = 1;
-    
-    fsrPINS[0]           = A1;
-    fsrPINS[1]           = A1;
-    fsrPINS[2]           = A1;
-  };
- 
-  // Note, in X3 mode, the wiring is different, since we are leveraging the ADC pins. No longer taking advantage of the 
+  // http://learn.adafruit.com/downloads/pdf/introducing-trinket.pdf
+  if ((currentBoard == BoardType::ATTINY85) || (currentBoard == BoardType::ADAFRUIT_TRINKET)) {
+    outputPin = 0;
+    triggerPin = 4;
+    calibratePin = 2;
+    sensorCount = 1;
+    isX3Mode = false;
+
+    ledPins[0] = 1;
+    ledPins[1] = 1;
+    ledPins[2] = 1;
+
+    fsrPins[0] = A1;
+    fsrPins[1] = A1;
+    fsrPins[2] = A1;
+  }
+
+  // Note, in X3 mode, the wiring is different, since we are leveraging the ADC pins. No longer taking advantage of the
   // onboard LED module on Trinket boards
-  if ( ( BOARD == ATTINY85X3 ) || ( BOARD == ADAFRUIT_TRINKETX3 ) )
-  {
-    outputPIN    = 0;
-    triggerPIN   =  4;
-    calibratePIN =  2;
-    sensors      =  3;
+  if ((currentBoard == BoardType::ATTINY85_X3) || (currentBoard == BoardType::ADAFRUIT_TRINKET_X3)) {
+    outputPin = 0;
+    triggerPin = 4;
+    calibratePin = 2;
+    sensorCount = 3;
 
-    ledPINS[0]           = 2;
-    ledPINS[1]           = 4;
-    ledPINS[2]           = 3;
-    
-    fsrPINS[0]           = 1;
-    fsrPINS[1]           = 2;
-    fsrPINS[2]           = 3;
-    
-    X3 = true;
-  };
+    ledPins[0] = 2;
+    ledPins[1] = 4;
+    ledPins[2] = 3;
 
+    // These are direct ADC channel numbers (ADC1, ADC2, ADC3) for ATtiny85.
+    fsrPins[0] = 1;
+    fsrPins[1] = 2;
+    fsrPins[2] = 3;
 
-  if ( BOARD == ATTINY84)  {
-    outputPIN    =  0;
-    triggerPIN   =  5;
-    calibratePIN =  4;
-    sensors      =  3;
+    isX3Mode = true;
+  }
 
-    ledPINS[0]           = 1;
-    ledPINS[1]           = 2;
-    ledPINS[2]           = 3;
+  if (currentBoard == BoardType::ATTINY84) {
+    outputPin = 0;
+    triggerPin = 5;
+    calibratePin = 4;
+    sensorCount = 3;
+    isX3Mode = false;
 
-    fsrPINS[0]           = A1;
-    fsrPINS[1]           = A2;
-    fsrPINS[2]           = A3;
+    ledPins[0] = 1;
+    ledPins[1] = 2;
+    ledPins[2] = 3;
 
-  };
+    fsrPins[0] = A1;
+    fsrPins[1] = A2;
+    fsrPins[2] = A3;
+  }
 
- if ( ( BOARD == ATMEGA328P  ) || ( BOARD == ARDUINO_UNO ) ) {
-     outputPIN     =  13;
-     triggerPIN    =  8 ;
-     calibratePIN  =  9;
-     sensors       =  3;
+  if ((currentBoard == BoardType::ATMEGA328P) || (currentBoard == BoardType::ARDUINO_UNO)) {
+    outputPin = 13;
+    triggerPin = 8;
+    calibratePin = 9;
+    sensorCount = 3;
+    isX3Mode = false;
 
-    ledPINS[0]           = 10;
-    ledPINS[1]           = 11;
-    ledPINS[2]           = 12;
+    ledPins[0] = 10;
+    ledPins[1] = 11;
+    ledPins[2] = 12;
 
-    fsrPINS[0]           = A0;
-    fsrPINS[1]           = A1;
-    fsrPINS[2]           = A2;
-  };
+    fsrPins[0] = A0;
+    fsrPins[1] = A1;
+    fsrPins[2] = A2;
+  }
 
-  if ( BOARD == ARDUINO_MEGA )  {
-     outputPIN     = 13;
-     triggerPIN    = 8;
-     calibratePIN  = 9;
-     sensors       = 3;
-    ledPINS[0]           = 10;
-    ledPINS[1]           = 11;
-    ledPINS[2]           = 12;
-    fsrPINS[0]           = A0;
-    fsrPINS[1]           = A1;
-    fsrPINS[2]           = A2;
-  };
-};
+  if (currentBoard == BoardType::ARDUINO_MEGA) {
+    outputPin = 13;
+    triggerPin = 8;
+    calibratePin = 9;
+    sensorCount = 3;
+    isX3Mode = false;
+
+    ledPins[0] = 10;
+    ledPins[1] = 11;
+    ledPins[2] = 12;
+
+    fsrPins[0] = A0;
+    fsrPins[1] = A1;
+    fsrPins[2] = A2;
+  }
+}
 
 void do_real_calibration() {
   int idx;
   int run;
-      // We want all input pins to be in input mode.
-      for ( idx=0; idx < sensors ; idx++ ) {
-          pinMode(fsrPINS[idx], INPUT );
-          digitalWrite( fsrPINS[idx], LOW );
-      };
-      
-      for ( idx=0; idx < sensors ; idx++ ) {
-        // Let's make sure we have some kind of averaging data to begin with.
-        // This is only done at the start
-        if ( fsrTALLY[idx] < seed ) {
-          for( run=0; run <=seed ; run++ ) {
-            fsrVAL[idx] = analogRead( fsrPINS[idx] );
-            fsrTOTAL[idx] = fsrTOTAL[idx] + fsrVAL[idx];
-            fsrTALLY[idx]++;
-          };
-        fsrAVG[idx] = (unsigned long)( ( fsrTOTAL[idx] * 1.00 )  / ( fsrTALLY[idx] * 1.00 ) );
-        };
+  // We want all input pins to be in input mode.
+  for (idx = 0; idx < sensorCount; idx++) {
+    pinMode(fsrPins[idx], INPUT);
+    digitalWrite(fsrPins[idx], LOW);
+  }
 
-        // Now, let's take a reading and add to the average
-        fsrVAL[idx] = analogRead( fsrPINS[idx] );
-        fsrAVG[idx] = (unsigned long)(((fsrAVG[idx]) + fsrVAL[idx]) / 2.00);
+  for (idx = 0; idx < sensorCount; idx++) {
+    // Let's make sure we have some kind of averaging data to begin with.
+    // This is only done at the start
+    if (fsrTallies[idx] < CALIBRATION_SEED) {
+      for (run = 0; run <= CALIBRATION_SEED; run++) {
+        fsrValues[idx] = analogRead(fsrPins[idx]);
+        fsrTotals[idx] = fsrTotals[idx] + fsrValues[idx];
+        fsrTallies[idx]++;
+      }
+      fsrAverages[idx] = (unsigned long) ((fsrTotals[idx] * 1.00) / (fsrTallies[idx] * 1.00));
+    }
 
-        if ( fsrAVG[idx] > fsrVAL[idx] ) {
-          fsrNL[idx] = (unsigned long)((fsrNL[idx] + abs(fsrAVG[idx] - fsrVAL[idx])  ) / 2.00 );
-        } else {
-          fsrNL[idx] = (unsigned long)((fsrNL[idx] + abs(fsrVAL[idx] - fsrAVG[idx])  ) / 2.00 );
-        };
-        
-        fsrNL[idx] = fsrNL[idx] + 8;
-        
-        if ( fsrNL[idx] > fsrNLmax[idx] ) {
-          fsrNLmax[idx] = fsrNL[idx];
-        };
-        
-        fsrNLmax[idx] = (unsigned long)((( fsrNLmax[idx] * 1.00 ) + ( fsrNL[idx] * 1.00 )  ) / 2.00 );
-        fsrTL[idx] = fsrNLmax[idx];
+    // Now, let's take a reading and add to the average
+    fsrValues[idx] = analogRead(fsrPins[idx]);
+    fsrAverages[idx] = (unsigned long) (((fsrAverages[idx]) + fsrValues[idx]) / 2.00);
 
-      };
-   calibration_LAST_RUN=millis();
-   
-   // Okay we done. Do we need to flip the LED pins back to output mode?
-   for ( idx=0; idx < sensors ; idx++ ) {
-     pinMode(ledPINS[idx], OUTPUT );
-     digitalWrite( ledPINS[idx], LOW );
-   };
-  
-};
+    if (fsrAverages[idx] > fsrValues[idx]) {
+      fsrNoiseLevels[idx] = (unsigned long) ((fsrNoiseLevels[idx] + abs(fsrAverages[idx] - fsrValues[idx])) / 2.00);
+    } else {
+      fsrNoiseLevels[idx] = (unsigned long) ((fsrNoiseLevels[idx] + abs(fsrValues[idx] - fsrAverages[idx])) / 2.00);
+    }
 
-void do_calibration() { 
+    // Add a small fixed value to the noise floor; an empirical adjustment.
+    fsrNoiseLevels[idx] = fsrNoiseLevels[idx] + 8;
+
+    if (fsrNoiseLevels[idx] > fsrNoiseLevelMax[idx]) {
+      fsrNoiseLevelMax[idx] = fsrNoiseLevels[idx];
+    }
+
+    fsrNoiseLevelMax[idx] = (unsigned long) (((fsrNoiseLevelMax[idx] * 1.00) + (fsrNoiseLevels[idx] * 1.00)) / 2.00);
+    // The trigger threshold is set relative to the running average, using the max observed noise level.
+    fsrTriggerLevels[idx] = fsrNoiseLevelMax[idx];
+  }
+  lastCalibrationTimestamp = millis();
+
+  // Okay we done. Do we need to flip the LED pins back to output mode?
+  for (idx = 0; idx < sensorCount; idx++) {
+    pinMode(ledPins[idx], OUTPUT);
+    digitalWrite(ledPins[idx], LOW);
+  }
+}
+
+void do_calibration() {
   int idx;
   int run;
 
   // The first time, we prime the calibration system.
-  if ( ! calibration_HAS_RUN ) {
-    for( idx=0 ; idx < 5; idx++ ) {
+  // Perform initial calibration multiple times to allow averages to stabilize.
+  if (!hasCalibrationRun) {
+    for (idx = 0; idx < 5; idx++) {
       do_real_calibration();
       delay(5);
-    };
-    calibration_HAS_RUN = true;
-  };
-  
-  if ( ( millis() - calibration_LAST_RUN ) > calibration_INTERVAL ) {
-    if ( triggerSTATE == false ) {
-      do_real_calibration();
-    };
-  };
-};
+    }
+    hasCalibrationRun = true;
+  }
 
-void do_sensor() { 
+  // Check if timed recalibration is due and if the system is not currently triggered.
+  if ((millis() - lastCalibrationTimestamp) > calibrationIntervalMs) {
+    if (systemTriggerState == false) {
+      do_real_calibration();
+    }
+  }
+}
+
+void do_sensor() {
   int idx;
   int pin;
 
-  
-  for( idx=0; idx<sensors ; idx++ ) {
-
-     if ( X3 == true ) {
+  for (idx = 0; idx < sensorCount; idx++) {
+    if (isX3Mode == true) {
       // We are using the same pins for input as we are
       // for output.
       // Prep the pins for input again
-      pinMode(fsrPINS[idx], INPUT );
-      digitalWrite( fsrPINS[idx], LOW );
-    };
-  };
-  
-  for( idx=0; idx<sensors ; idx++ ) {
- 
+      // In X3 mode, FSR pins are shared with LEDs; ensure they are set to INPUT before reading.
+      pinMode(fsrPins[idx], INPUT);
+      digitalWrite(fsrPins[idx], LOW);
+    }
+  }
+
+  for (idx = 0; idx < sensorCount; idx++) {
     // Let's take a reading. (we'll take two)
-    fsrVAL[idx] = analogRead( fsrPINS[idx] );
-    fsrVAL[idx] = analogRead( fsrPINS[idx] );
+    fsrValues[idx] = analogRead(fsrPins[idx]);
+    // Take two consecutive readings; the first may help settle the ADC after multiplexer changes.
+    fsrValues[idx] = analogRead(fsrPins[idx]);
 
-    if ( fsrVAL[idx] > ( fsrAVG[idx] + fsrTL[idx]  )  ) {
-      fsrSTATE[idx]=true;
-    };
+    if (fsrValues[idx] > (fsrAverages[idx] + fsrTriggerLevels[idx])) {
+      fsrStates[idx] = true;
+    }
 
-    if ( fsrVAL[idx] < ( fsrAVG[idx] + fsrNLmax[idx] )  ) {
-      fsrSTATE[idx]=false;
-    };
-  };
-  
-  
-    // If we are using the FSR pins for both LED and FSR input, let's
-    // flip them back to output mode and set their light correctly.  
-  for( idx=0; idx<sensors ; idx++ ) {
-    pinMode( ledPINS[idx] , OUTPUT );
-    if ( fsrSTATE[idx] == true ) {
-      digitalWrite( ledPINS[idx], HIGH );
+    if (fsrValues[idx] < (fsrAverages[idx] + fsrNoiseLevelMax[idx])) {
+      fsrStates[idx] = false;
+    }
+    // Note on trigger logic:
+    // fsrTriggerLevels[idx] is typically equal to fsrNoiseLevelMax[idx] after calibration.
+    // Trigger ON if: fsrValue > fsrAverage + fsrNoiseLevelMax
+    // Trigger OFF if: fsrValue < fsrAverage + fsrNoiseLevelMax
+    // This means hysteresis is primarily managed by the responsiveness of fsrAverages
+    // and fsrNoiseLevelMax to sustained changes, rather than a fixed numerical gap here.
+  }
+
+  // If we are using the FSR pins for both LED and FSR input, let's
+  // flip them back to output mode and set their light correctly.
+  for (idx = 0; idx < sensorCount; idx++) {
+    pinMode(ledPins[idx], OUTPUT);
+    if (fsrStates[idx] == true) {
+      digitalWrite(ledPins[idx], HIGH);
     } else {
-      digitalWrite( ledPINS[idx], LOW );
-    };    
-  }; 
-};
+      digitalWrite(ledPins[idx], LOW);
+    }
+  }
+}
 
 void do_trigger() {
-  int finalSTATE=0;
+  int finalState = 0;
   int idx;
-  for( idx=0 ; idx < sensors ; idx++ )
-  {
-      if ( fsrSTATE[idx] == true ) {
-        pinMode( ledPINS[idx] , OUTPUT );
-        digitalWrite( ledPINS[idx], HIGH);
-        digitalWrite( outputPIN, LOW );
-        finalSTATE++;
-      } else {
-        pinMode( ledPINS[idx] , OUTPUT );
-        digitalWrite( ledPINS[idx], LOW);
-        finalSTATE--;
-      };
-  };
+  for (idx = 0; idx < sensorCount; idx++) {
+    if (fsrStates[idx] == true) {
+      // Ensure LED pin is set to output before writing.
+      pinMode(ledPins[idx], OUTPUT);
+      digitalWrite(ledPins[idx], HIGH);
+      digitalWrite(outputPin, LOW);
+      finalState++;
+    } else {
+      // Ensure LED pin is set to output before writing.
+      pinMode(ledPins[idx], OUTPUT);
+      digitalWrite(ledPins[idx], LOW);
+      finalState--;
+    }
+  }
 
-  if ( finalSTATE < 1 ) {
-    digitalWrite( outputPIN, HIGH );
-  };
- 
-};
+  if (finalState < 1) {
+    digitalWrite(outputPin, HIGH);
+  }
+}
 
-void do_pin_setup() { 
+void do_pin_setup() {
   int idx;
   // Output trigger pin. Default is NC / Normall Connected mode. So high!
-  pinMode( outputPIN , OUTPUT );
-  digitalWrite( outputPIN, HIGH );
+  pinMode(outputPin, OUTPUT);
+  digitalWrite(outputPin, HIGH);
 
   // The trigger pin. Pull up. To trigger, pull down to ground.
-  pinMode( triggerPIN , INPUT ); 
-  digitalWrite( triggerPIN, HIGH );
+  pinMode(triggerPin, INPUT);
+  digitalWrite(triggerPin, HIGH);
 
   // Calibration pin. Pull up. Pull down to ground to trigger calibration.
   // If left shorted to ground, will re-calibrate when calibration timeout occurs.
-  pinMode( calibratePIN, INPUT );
-  digitalWrite( calibratePIN, HIGH );
+  pinMode(calibratePin, INPUT);
+  digitalWrite(calibratePin, HIGH);
 
-  for(idx=0; idx < sensors; idx++) {
+  for (idx = 0; idx < sensorCount; idx++) {
     // Make sure the LED pins are set to output and are low.
-    pinMode( ledPINS[idx] , OUTPUT );
-    digitalWrite( ledPINS[idx], LOW );
+    pinMode(ledPins[idx], OUTPUT);
+    digitalWrite(ledPins[idx], LOW);
 
     // If the LED and FSR pins differ, then change them to pinput.
-    // Otherwise, leave them as output. This supports FSR/LED on the same pins. 
-    if ( X3 != true ) {
+    // Otherwise, leave them as output. This supports FSR/LED on the same pins.
+    // For non-X3 boards, FSR pins are dedicated inputs.
+    if (isX3Mode != true) {
       // Make sure the FSR pins are set to input and are pulled low.
-      pinMode( fsrPINS[idx], INPUT );
-      digitalWrite( fsrPINS[idx], LOW );
+      pinMode(fsrPins[idx], INPUT);
+      digitalWrite(fsrPins[idx], LOW);
     }
-  };
-
-};
+  }
+}
 
