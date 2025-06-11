@@ -1,43 +1,46 @@
 #include "Board.h"      // Board configuration
 #include "FSRManager.h" // FSR data and logic management
+#include "LEDController.h" // Manages LED outputs
 #include <Arduino.h>    // For millis(), delay()
 
 // Global objects
 Board board;
-FSRManager fsrManager(board); // Pass board reference to FSRManager
+FSRManager fsrManager(board);
+LEDController ledController(board, fsrManager); // Instantiate LEDController
 
 // Constants
-const int CALIBRATION_SEED = 5; // Seed for initial calibration stability
+const int CALIBRATION_SEED = 5;
 
 // Global states not yet encapsulated
 bool isDebugMode;
 bool hasCalibrationRun = false;
 unsigned long lastCalibrationTimestamp = 0;
 unsigned long calibrationIntervalMs = 500;
-bool systemTriggerState = false; // Overall system trigger state
+bool systemTriggerState = false;
 
 /**
- * @brief Initializes the microcontroller, board configuration, pin modes, FSR manager, and performs initial sensor calibration.
+ * @brief Initializes the microcontroller, board, FSR manager, LEDs, and performs initial calibration.
  */
 void setup() {
-  board.initialize(BoardType::ADAFRUIT_TRINKET_X3); // Example board type
+  board.initialize(BoardType::ADAFRUIT_TRINKET_X3);
   isDebugMode = false;
 
-  fsrManager.initializeSensors(); // Initialize FSR data arrays within FSRManager
-
-  board.setupPins(); // Setup general pin modes via Board object
+  fsrManager.initializeSensors();
+  board.setupPins(); // Sets up general pins, including initial LED pin modes
+  // ledController.setupLEDs(); // Not strictly needed if Board::setupPins covers it.
 
   lastCalibrationTimestamp = millis();
-  do_calibration(); // Perform initial calibration
+  do_calibration();
 }
 
 /**
- * @brief Main execution loop: reads sensors, updates triggers, and handles recalibration.
+ * @brief Main execution loop.
  */
 void loop() {
-  do_sensor();
-  do_trigger();
-  do_calibration();
+  fsrManager.readAllSensors(); // Read sensors first
+  ledController.update();      // Update LEDs based on new sensor states
+  do_trigger();                // Update main trigger output
+  do_calibration();            // Check for recalibration
 }
 
 /**
@@ -50,35 +53,19 @@ void do_calibration() {
       delay(5);
     }
     hasCalibrationRun = true;
-    // Update timestamp after initial calibration priming is fully complete
     lastCalibrationTimestamp = millis();
   }
 
   if ((millis() - lastCalibrationTimestamp) > calibrationIntervalMs) {
     if (systemTriggerState == false) {
       fsrManager.performCalibrationCycle(CALIBRATION_SEED);
-      lastCalibrationTimestamp = millis(); // Update timestamp after successful recalibration
+      lastCalibrationTimestamp = millis();
     }
   }
 }
 
-/**
- * @brief Reads FSR sensor values via FSRManager and updates LED indicators.
- * @details LED update logic is temporarily kept here and will be moved to an LEDController.
- */
-void do_sensor() {
-  fsrManager.readAllSensors(); // FSRManager now handles reading and state determination
-
-  // LED update logic (to be moved to LEDController)
-  for (int i = 0; i < board.getSensorCount(); ++i) {
-    pinMode(board.getLedPin(i), OUTPUT); // Ensure LED pin is output
-    if (fsrManager.isSensorTriggered(i)) {
-      digitalWrite(board.getLedPin(i), HIGH);
-    } else {
-      digitalWrite(board.getLedPin(i), LOW);
-    }
-  }
-}
+// void do_sensor() // This function is now effectively replaced by calls to
+                  // fsrManager.readAllSensors() and ledController.update() in loop()
 
 /**
  * @brief Updates the main system trigger output based on FSR states from FSRManager.
