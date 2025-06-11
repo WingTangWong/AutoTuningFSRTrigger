@@ -12,14 +12,16 @@ public:
   void readAllSensors();
   bool isSensorTriggered(int sensorIndex) const;
   bool isAnySensorTriggered() const;
-  unsigned long getFsrValue(int sensorIndex) const;
-  int getActiveSensorCount() const;
+  unsigned long getFsrValue(int sensorIndex) const; // Optional: if needed by other modules
 
 private:
-  Board& board;
+  Board& board; // Reference to the board object to get pin info, sensor count etc.
 
+  // Arrays to store FSR states and readings
   bool fsrStates[MAX_SENSORS_PER_BOARD];
   unsigned long fsrValues[MAX_SENSORS_PER_BOARD];
+
+  // Arrays for calibration data
   unsigned long fsrAverages[MAX_SENSORS_PER_BOARD];
   unsigned long fsrNoiseLevels[MAX_SENSORS_PER_BOARD];
   unsigned long fsrTriggerLevels[MAX_SENSORS_PER_BOARD];

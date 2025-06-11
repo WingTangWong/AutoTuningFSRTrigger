@@ -1,8 +1,8 @@
 #include "FSRManager.h"
-#include <Arduino.h>
+#include <Arduino.h> // For pinMode, digitalWrite, analogRead, abs, etc.
 
 FSRManager::FSRManager(Board& boardRef) : board(boardRef) {
-  // Constructor
+  // Constructor: Initializes the reference to the Board object.
 }
 
 void FSRManager::initializeSensors() {
@@ -18,10 +18,9 @@ void FSRManager::initializeSensors() {
   }
 }
 
-// Takes calibrationSeed as an argument now
 void FSRManager::performCalibrationCycle(int calibrationSeed) {
-  int sensorCount = board.getSensorCount();
-  for (int idx = 0; idx < sensorCount; ++idx) {
+  int currentSensorCount = board.getSensorCount();
+  for (int idx = 0; idx < currentSensorCount; ++idx) {
     if (board.isX3ModeActive()) {
         pinMode(board.getFsrPin(idx), INPUT);
         digitalWrite(board.getFsrPin(idx), LOW);
@@ -63,25 +62,24 @@ void FSRManager::performCalibrationCycle(int calibrationSeed) {
 }
 
 void FSRManager::readAllSensors() {
-  int sensorCount = board.getSensorCount();
+  int currentSensorCount = board.getSensorCount();
 
   if (board.isX3ModeActive()) {
-    for (int idx = 0; idx < sensorCount; ++idx) {
+    for (int idx = 0; idx < currentSensorCount; ++idx) {
       pinMode(board.getFsrPin(idx), INPUT);
       digitalWrite(board.getFsrPin(idx), LOW);
     }
   }
 
-  for (int idx = 0; idx < sensorCount; ++idx) {
+  for (int idx = 0; idx < currentSensorCount; ++idx) {
     fsrValues[idx] = analogRead(board.getFsrPin(idx));
     fsrValues[idx] = analogRead(board.getFsrPin(idx));
 
     if (fsrValues[idx] > (fsrAverages[idx] + fsrTriggerLevels[idx])) {
       fsrStates[idx] = true;
-    } else if (fsrValues[idx] < (fsrAverages[idx] + fsrNoiseLevelMax[idx])) { // Added 'else if' for clarity
+    } else if (fsrValues[idx] < (fsrAverages[idx] + fsrNoiseLevelMax[idx])) {
       fsrStates[idx] = false;
     }
-    // If in between, state remains unchanged.
   }
 }
 
@@ -105,10 +103,6 @@ unsigned long FSRManager::getFsrValue(int sensorIndex) const {
   if (sensorIndex >= 0 && sensorIndex < board.getSensorCount()) {
     return fsrValues[sensorIndex];
   }
-  return 0; // Return 0 or some error indicator for invalid index
-}
-
-int FSRManager::getActiveSensorCount() const {
-    return board.getSensorCount();
+  return 0;
 }
 ```
